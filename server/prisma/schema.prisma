@@ -1,0 +1,74 @@
+// Prisma 資料模型設計
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 工單資料模型
+model Ticket {
+  id          String   @id @default(cuid()) // 工單唯一識別碼
+  deviceId    String   // 設備 ID
+  imageId     String?  // 影像 ID（可選）
+  status      String   @default("OPEN") // 工單狀態，預設為 OPEN
+  createdAt   DateTime @default(now()) // 建立時間
+  updatedAt   DateTime @updatedAt // 更新時間
+  
+  // 關聯到工單排程和照片
+  schedules   TicketSchedule[] // 工單排程關聯
+  photos      Photo[] // 工單照片關聯
+}
+
+// 預生產目標資料模型
+model ProductionTarget {
+  id                      String   @id @default(cuid()) // 目標唯一識別碼
+  name                    String   // 目標名稱
+  description             String?  // 目標描述（可選）
+  expectedCompletionDate  String   // 預計完成時間
+  status                  String   @default("PLANNING") // 目標狀態，預設為 PLANNING
+  createdAt               DateTime @default(now()) // 建立時間
+  updatedAt               DateTime @updatedAt // 更新時間
+  
+  // 關聯到工單排程
+  schedules               TicketSchedule[] // 目標排程關聯
+}
+
+// 工單排程資料模型
+model TicketSchedule {
+  id              String   @id @default(cuid()) // 排程唯一識別碼
+  ticketId        String   // 工單 ID
+  targetId        String   // 預生產目標 ID
+  scheduledDate   String   // 排程日期
+  scheduledTime   String?  // 排程時間（可選）
+  priority        String   @default("MEDIUM") // 優先級，預設為 MEDIUM
+  status          String   @default("OPEN") // 排程狀態，預設為 OPEN
+  createdAt       DateTime @default(now()) // 建立時間
+  updatedAt       DateTime @updatedAt // 更新時間
+  
+  // 關聯到工單和目標
+  ticket          Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  target          ProductionTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+}
+
+// 照片資料模型
+model Photo {
+  id            String   @id @default(cuid()) // 照片唯一識別碼
+  ticketId      String   // 工單 ID
+  filename      String   // 存儲文件名
+  originalName  String   // 原始文件名
+  filePath      String   // 文件路徑
+  fileSize      Int      // 文件大小（字節）
+  mimeType      String   // MIME類型
+  description   String?  // 照片描述（可選）
+  uploadedAt    DateTime @default(now()) // 上傳時間
+  
+  // 關聯到工單
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+// 工單狀態：使用字串 "OPEN" 或 "CLOSED"
+// 目標狀態：使用字串 "PLANNING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
+// 排程優先級：使用字串 "HIGH", "MEDIUM", "LOW"

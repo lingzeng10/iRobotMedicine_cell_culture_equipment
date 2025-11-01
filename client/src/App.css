@@ -1,0 +1,302 @@
+/* 應用程式全域樣式 - 智慧醫療藍白風格 */
+.app-layout {
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #1a202c;
+}
+
+/* 頁面標題列樣式 - 醫療藍主題 */
+.app-header {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+  padding: 0 24px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 100%;
+}
+
+/* 主要內容區域樣式 - 淺色主題 */
+.app-content {
+  background-color: #f8fafc;
+  min-height: calc(100vh - 64px);
+  color: #1a202c;
+}
+
+.content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 0;
+  }
+  
+  .content-container {
+    padding: 16px;
+  }
+}
+
+/* 卡片樣式優化 - 醫療風格 */
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #1a202c;
+}
+
+.ant-card-head {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1a202c;
+}
+
+.ant-card-body {
+  background: #ffffff;
+  color: #1a202c;
+}
+
+/* 表格樣式優化 - 醫療風格 */
+.ant-table {
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1a202c;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #f7fafc;
+  font-weight: 600;
+  color: #1a202c;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ant-table-tbody > tr > td {
+  background-color: #ffffff;
+  color: #1a202c;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background-color: #f7fafc;
+}
+
+/* 按鈕樣式優化 */
+.ant-btn {
+  border-radius: 8px;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  border: none;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+}
+
+.ant-btn-default {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #1a202c;
+}
+
+.ant-btn-default:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+/* 標籤樣式 */
+.ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* 表單樣式優化 */
+.ant-form-item-label > label {
+  font-weight: 600;
+}
+
+/* Modal 樣式優化 */
+.ant-modal-header {
+  border-radius: 8px 8px 0 0;
+}
+
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+/* 載入動畫 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ant-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 工具提示樣式 */
+.ant-tooltip-inner {
+  border-radius: 6px;
+}
+
+/* 分頁器樣式 */
+.ant-pagination {
+  text-align: center;
+}
+
+.ant-pagination .ant-pagination-item-active {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  border-color: #1976d2;
+}
+
+/* 描述列表樣式 - 醫療風格 */
+.ant-descriptions-item-label {
+  font-weight: 600;
+  color: #1a202c !important;
+}
+
+.ant-descriptions-item-content {
+  color: #1a202c !important;
+}
+
+/* 統計面板樣式 - 醫療風格 */
+.ant-statistic-title {
+  color: #4a5568 !important;
+}
+
+.ant-statistic-content {
+  color: #1a202c !important;
+}
+
+.ant-statistic-content-value {
+  color: #1976d2 !important;
+}
+
+.ant-statistic-content-suffix {
+  color: #4a5568 !important;
+}
+
+/* 輸入框聚焦效果 - 醫療風格 */
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.ant-select:focus,
+.ant-select-focused .ant-select-selector {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+/* 表單元素醫療風格 */
+.ant-input {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
+
+.ant-input::placeholder {
+  color: #a0aec0 !important;
+}
+
+.ant-select-selector {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
+
+.ant-select-selection-item {
+  color: #1a202c !important;
+}
+
+.ant-select-selection-placeholder {
+  color: #a0aec0 !important;
+}
+
+.ant-textarea {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
+
+.ant-textarea::placeholder {
+  color: #a0aec0 !important;
+}
+
+/* 表單標籤 */
+.ant-form-item-label > label {
+  color: #1a202c !important;
+}
+
+/* 按鈕樣式 */
+.ant-btn {
+  color: #1a202c !important;
+}
+
+.ant-btn-primary {
+  background: #1976d2 !important;
+  border-color: #1976d2 !important;
+  color: #ffffff !important;
+}
+
+.ant-btn-primary:hover {
+  background: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+
+.ant-btn-default {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
+
+.ant-btn-default:hover {
+  background: #f7fafc !important;
+  border-color: #cbd5e0 !important;
+}
+
+/* 標籤樣式 */
+.ant-tag {
+  color: #1a202c !important;
+}
+
+/* 分頁器樣式 */
+.ant-pagination .ant-pagination-item {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
+
+.ant-pagination .ant-pagination-item-active {
+  background: #1976d2 !important;
+  border-color: #1976d2 !important;
+  color: #ffffff !important;
+}
+
+.ant-pagination .ant-pagination-item-link {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
