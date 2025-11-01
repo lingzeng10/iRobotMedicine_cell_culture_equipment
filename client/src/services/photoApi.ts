@@ -5,9 +5,28 @@
 
 import axios from 'axios';
 
+// 動態獲取 API URL（支援外部訪問）
+const getApiBaseUrl = (): string => {
+  // 優先使用環境變數
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+
+  // 如果當前訪問地址不是 localhost，自動構建 API URL
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  
+  if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+    // 本機訪問，使用 localhost
+    return 'http://localhost:5000/api';
+  } else {
+    // 外部訪問（使用 IP 地址），構建對應的 API URL
+    return `http://${currentHost}:5000/api`;
+  }
+};
+
 // API 基礎配置
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiBaseUrl(),
   timeout: 30000, // 30 秒超時（照片上傳可能需要更長時間）
   headers: {
     'Content-Type': 'application/json; charset=utf-8',
@@ -117,6 +136,8 @@ export class PhotoService {
    * @param photoId 照片ID
    */
   static getPhotoViewUrl(photoId: string): string {
-    return `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/photos/${photoId}/view`;
+    // 使用動態 API URL
+    const apiBaseUrl = getApiBaseUrl();
+    return `${apiBaseUrl}/photos/${photoId}/view`;
   }
 }

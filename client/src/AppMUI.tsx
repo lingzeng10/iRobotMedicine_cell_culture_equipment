@@ -43,7 +43,6 @@ import {
 import TargetList from './components/TargetList';
 import TicketSchedule from './components/TicketSchedule';
 import CreateTargetForm from './components/CreateTargetForm';
-import CreateTicketForm from './components/CreateTicketForm';
 import TicketDetailMUI from './components/TicketDetailMUI';
 import VersionDialog from './components/VersionDialog';
 
@@ -183,7 +182,6 @@ const AppMUI: React.FC = () => {
   const [selectedTarget, setSelectedTarget] = useState<ProductionTarget | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [createTargetDialogOpen, setCreateTargetDialogOpen] = useState(false);
-  const [createTicketDialogOpen, setCreateTicketDialogOpen] = useState(false);
   const [ticketDetailDialogOpen, setTicketDetailDialogOpen] = useState(false);
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -251,15 +249,6 @@ const AppMUI: React.FC = () => {
   const handleTargetCreate = (newTarget: ProductionTarget) => {
     setTargets(prev => [...prev, newTarget]); // 將新目標添加到列表中
     setSelectedTarget(newTarget); // 自動選中新建立的目標
-  };
-
-  /**
-   * 處理建立工單成功
-   * @param newTicket 新建立的工單
-   */
-  const handleCreateTicketSuccess = (newTicket: Ticket) => {
-    setCreateTicketDialogOpen(false);
-    // 可以在這裡添加成功提示或其他處理
   };
 
   /**
@@ -339,14 +328,6 @@ const AppMUI: React.FC = () => {
             <Typography variant="body2" sx={{ mr: 2, color: 'white' }}>
               預生產目標與工單排程管理
             </Typography>
-            <Button
-              color="inherit"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateTicketDialogOpen(true)}
-              sx={{ mr: 1 }}
-            >
-              建立工單
-            </Button>
             <Button
               color="inherit"
               startIcon={<InfoIcon />}
@@ -480,13 +461,6 @@ const AppMUI: React.FC = () => {
           ticket={selectedTicket || undefined}
           onClose={() => setTicketDetailDialogOpen(false)}
           onUpdate={handleTicketUpdate}
-        />
-
-        {/* 建立工單對話框 */}
-        <CreateTicketForm
-          open={createTicketDialogOpen}
-          onClose={() => setCreateTicketDialogOpen(false)}
-          onSuccess={handleCreateTicketSuccess}
         />
 
         {/* 錯誤訊息 */}

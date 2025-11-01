@@ -11,9 +11,28 @@ import {
 } from '../types/target';
 import { ApiResponse } from '../types/ticket';
 
+// 動態獲取 API URL（支援外部訪問）
+const getApiBaseUrl = (): string => {
+  // 優先使用環境變數
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+
+  // 如果當前訪問地址不是 localhost，自動構建 API URL
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  
+  if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+    // 本機訪問，使用 localhost
+    return 'http://localhost:5000/api';
+  } else {
+    // 外部訪問（使用 IP 地址），構建對應的 API URL
+    return `http://${currentHost}:5000/api`;
+  }
+};
+
 // 建立 axios 實例，設定基礎 URL
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -136,6 +155,33 @@ export class TargetService {
       return {
         success: false,
         message: error.response?.data?.message || '取得工單排程失敗',
+      };
+    }
+  }
+
+  /**
+   * 取得指定日期的所有排程
+   * @param date 日期 (格式: YYYY-MM-DD)
+   */
+  static async getSchedulesByDate(date: string): Promise<ApiResponse<TicketScheduleWithRelations[]>> {
+    try {
+      const response = await api.get(`/schedules?date=${date}&limit=1000`);
+      if (response.data.success && response.data.data?.schedules) {
+        return {
+          success: true,
+          message: response.data.message,
+          data: response.data.data.schedules,
+        };
+      }
+      return {
+        success: false,
+        message: response.data.message || '取得今日排程失敗',
+      };
+    } catch (error: any) {
+      console.error('取得今日排程失敗:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || '取得今日排程失敗',
       };
     }
   }

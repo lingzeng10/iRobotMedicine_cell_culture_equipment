@@ -297,6 +297,7 @@ router.get('/', async (req, res) => {
     if (targetId) where.targetId = targetId;
     if (ticketId) where.ticketId = ticketId;
     if (status) where.status = status;
+    if (req.query.date) where.scheduledDate = req.query.date; // 支援日期篩選
 
     // 查詢排程總數
     const total = await prisma.ticketSchedule.count({ where });

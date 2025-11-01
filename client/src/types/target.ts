@@ -77,7 +77,6 @@ export interface TicketScheduleWithRelations extends TicketSchedule {
     updatedAt: string;
   };
 }
-
 // 建立工單排程請求介面
 export interface CreateScheduleRequest {
   ticketId: string;

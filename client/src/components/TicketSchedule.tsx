@@ -73,6 +73,8 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTodaySchedules, setShowTodaySchedules] = useState(false); // 是否顯示今日排程
+  const [todaySchedules, setTodaySchedules] = useState<TicketScheduleWithRelations[]>([]); // 今日排程資料
   
   // 對話框狀態
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -128,6 +130,59 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
   }, [selectedTarget]);
 
   /**
+   * 載入今日排程
+   */
+  const loadTodaySchedules = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 取得今天的日期（格式: YYYY-MM-DD）
+      const today = dayjs().format('YYYY-MM-DD');
+      
+      // 載入今日所有排程
+      const response = await TargetService.getSchedulesByDate(today);
+      
+      if (response.success && response.data) {
+        setTodaySchedules(response.data);
+        setShowTodaySchedules(true);
+      } else {
+        setError(response.message || '載入今日排程失敗');
+        setTodaySchedules([]);
+      }
+
+      // 載入所有工單（用於顯示工單名稱）
+      const ticketResponse = await TicketService.getTickets();
+      
+      if (ticketResponse.success && ticketResponse.data) {
+        setTickets(ticketResponse.data.tickets);
+      }
+    } catch (error: any) {
+      console.error('載入今日排程錯誤:', error);
+      setError('載入今日排程失敗，請稍後再試');
+      setTodaySchedules([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 切換顯示模式（今日排程 / 目標排程）
+   */
+  const handleToggleView = () => {
+    if (showTodaySchedules) {
+      // 切換回目標排程模式
+      setShowTodaySchedules(false);
+      if (selectedTarget) {
+        loadSchedules();
+      }
+    } else {
+      // 切換到今日排程模式
+      loadTodaySchedules();
+    }
+  };
+
+  /**
    * 處理新增排程
    */
   const handleCreateSchedule = async () => {
@@ -170,6 +225,12 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
 
       if (response.success && response.data) {
         setSchedules(prev => [...prev, response.data!]);
+        
+        // 如果新排程是今日的，且當前處於今日排程模式，更新今日排程列表
+        const today = dayjs().format('YYYY-MM-DD');
+        if (showTodaySchedules && response.data.scheduledDate === today) {
+          setTodaySchedules(prev => [...prev, response.data!]);
+        }
         
         // 如果目標狀態被自動更新為「進行中」，通知父組件
         if (response.data.target && response.data.target.status === TargetStatus.IN_PROGRESS && onTargetUpdate) {
@@ -217,7 +278,13 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
       const response = await TargetService.deleteSchedule(scheduleId);
 
       if (response.success) {
-        setSchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
+        if (showTodaySchedules) {
+          // 更新今日排程列表
+          setTodaySchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
+        } else {
+          // 更新目標排程列表
+          setSchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
+        }
       } else {
         setError(response.message || '刪除工單排程失敗');
       }
@@ -340,13 +407,22 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
     }
   };
 
-  // 當選中目標變更時載入排程資料
+  // 當選中目標變更時載入排程資料（僅在非今日排程模式下）
   useEffect(() => {
-    loadSchedules();
-  }, [loadSchedules]);
+    if (!showTodaySchedules && selectedTarget) {
+      loadSchedules();
+    }
+  }, [selectedTarget, showTodaySchedules, loadSchedules]);
+  
+  // 當切換回目標排程模式時，重置今日排程狀態
+  useEffect(() => {
+    if (!showTodaySchedules) {
+      setTodaySchedules([]);
+    }
+  }, [showTodaySchedules]);
 
-  // 如果沒有選中目標，顯示提示訊息
-  if (!selectedTarget) {
+  // 如果沒有選中目標且不在今日排程模式，顯示提示訊息
+  if (!selectedTarget && !showTodaySchedules) {
     return (
       <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 400 }}>
@@ -354,9 +430,16 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
           <Typography variant="h6" gutterBottom>
             請選擇預生產目標
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             從左側列表選擇一個預生產目標，查看其工單排程
           </Typography>
+          <Button
+            variant="contained"
+            startIcon={<CalendarIcon />}
+            onClick={loadTodaySchedules}
+          >
+            查看今日排程
+          </Button>
         </Paper>
       </Box>
     );
@@ -370,20 +453,34 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
               <Typography variant="h6" component="h2" gutterBottom>
-                工單排程
+                {showTodaySchedules ? '今日排程' : '工單排程'}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                目標：{selectedTarget.name}
-              </Typography>
+              {showTodaySchedules && (
+                <Typography variant="body2" color="text.secondary">
+                  {dayjs().format('YYYY年MM月DD日')}
+                </Typography>
+              )}
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-              size="small"
-            >
-              新增排程
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant={showTodaySchedules ? "outlined" : "contained"}
+                startIcon={<CalendarIcon />}
+                onClick={handleToggleView}
+                size="small"
+              >
+                今日排程
+              </Button>
+              {!showTodaySchedules && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setCreateDialogOpen(true)}
+                  size="small"
+                >
+                  新增排程
+                </Button>
+              )}
+            </Box>
           </Box>
         </Box>
 
@@ -404,7 +501,129 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
         {/* 排程列表 */}
         {!loading && (
           <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-            {schedules.length === 0 ? (
+            {showTodaySchedules ? (
+              // 今日排程模式：按目標分組顯示
+              todaySchedules.length === 0 ? (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <ScheduleIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    今日尚無排程
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {dayjs().format('YYYY年MM月DD日')} 沒有任何工單排程
+                  </Typography>
+                </Paper>
+              ) : (
+                // 按目標分組顯示今日排程
+                (() => {
+                  // 按目標 ID 分組
+                  const groupedByTarget = todaySchedules.reduce((acc, schedule) => {
+                    const targetId = schedule.targetId;
+                    if (!acc[targetId]) {
+                      acc[targetId] = {
+                        target: schedule.target,
+                        schedules: [],
+                      };
+                    }
+                    acc[targetId].schedules.push(schedule);
+                    return acc;
+                  }, {} as Record<string, { target: any; schedules: TicketScheduleWithRelations[] }>);
+
+                  return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {Object.values(groupedByTarget).map((group, index) => (
+                        <Card key={group.target.id} sx={{ border: 1, borderColor: 'divider' }}>
+                          <CardContent>
+                            <Typography variant="h6" gutterBottom sx={{ mb: 2, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
+                              {group.target.name}
+                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {group.schedules.map((schedule) => {
+                                const ticket = tickets.find(t => t.id === schedule.ticketId);
+                                return (
+                                  <Card 
+                                    key={schedule.id}
+                                    sx={{ 
+                                      backgroundColor: 'background.paper',
+                                      '&:hover': { 
+                                        boxShadow: 2,
+                                        cursor: 'pointer' 
+                                      } 
+                                    }}
+                                    onClick={() => ticket && onTicketSelect(ticket)}
+                                  >
+                                    <CardContent>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Box sx={{ flex: 1 }}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                            <Typography variant="h6" component="div">
+                                              {ticket ? getTicketName(ticket.deviceId) : '未知工單'}
+                                            </Typography>
+                                            <Chip
+                                              icon={getStatusIcon(schedule.status)}
+                                              label={getStatusText(schedule.status)}
+                                              color={getStatusColor(schedule.status)}
+                                              size="small"
+                                            />
+                                            <Chip
+                                              icon={getPriorityIcon(schedule.priority)}
+                                              label={getPriorityText(schedule.priority)}
+                                              color={getPriorityColor(schedule.priority)}
+                                              size="small"
+                                            />
+                                          </Box>
+                                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                              <CalendarIcon fontSize="small" color="action" />
+                                              <Typography variant="body2" color="text.secondary">
+                                                {schedule.scheduledDate}
+                                              </Typography>
+                                            </Box>
+                                            {schedule.scheduledTime && (
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <TimeIcon fontSize="small" color="action" />
+                                                <Typography variant="body2" color="text.secondary">
+                                                  {schedule.scheduledTime}
+                                                </Typography>
+                                              </Box>
+                                            )}
+                                          </Box>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingSchedule(schedule);
+                                              setEditDialogOpen(true);
+                                            }}
+                                          >
+                                            <EditIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteSchedule(schedule.id);
+                                            }}
+                                          >
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
+                                        </Box>
+                                      </Box>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  );
+                })()
+              )
+            ) : schedules.length === 0 ? (
               <Paper sx={{ p: 4, textAlign: 'center' }}>
                 <ScheduleIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" gutterBottom>
