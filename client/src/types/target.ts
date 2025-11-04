@@ -10,7 +10,8 @@ export enum TargetStatus {
 export interface ProductionTarget {
   id: string;
   name: string;                    // 目標名稱
-  description?: string;            // 目標描述
+  materialType?: string;            // 收集原料種類
+  responsiblePerson?: string;      // 負責人員（OP001, OP002, OP003）
   expectedCompletionDate: string;  // 預計完成時間
   status: TargetStatus;            // 目標狀態
   createdAt: string;              // 建立時間
@@ -20,14 +21,16 @@ export interface ProductionTarget {
 // 建立預生產目標請求介面
 export interface CreateTargetRequest {
   name: string;
-  description?: string;
+  materialType?: string;           // 收集原料種類
+  responsiblePerson?: string;      // 負責人員（OP001, OP002, OP003）
   expectedCompletionDate: string;
 }
 
 // 更新預生產目標請求介面
 export interface UpdateTargetRequest {
   name?: string;
-  description?: string;
+  materialType?: string;           // 收集原料種類
+  responsiblePerson?: string;      // 負責人員（OP001, OP002, OP003）
   expectedCompletionDate?: string;
   status?: TargetStatus;
 }
@@ -70,7 +73,8 @@ export interface TicketScheduleWithRelations extends TicketSchedule {
   target: {
     id: string;
     name: string;
-    description?: string;
+    materialType?: string;
+    responsiblePerson?: string;
     expectedCompletionDate: string;
     status: TargetStatus;
     createdAt: string;

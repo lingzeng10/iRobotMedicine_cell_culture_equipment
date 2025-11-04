@@ -303,6 +303,17 @@ router.put('/:id', [
     .isIn(['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5', '不回收'])
     .withMessage('回收培養液種類必須為 022-02.4, 022-02.1, SAM10, CM2, AM5, 或 不回收'),
   
+  // 驗證回收/丟棄工單欄位
+  body('collectDiscardBoxCount')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('回收/丟盒數必須為非負整數'),
+  
+  body('collectDiscardRecycledMediumType')
+    .optional()
+    .isIn(['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'])
+    .withMessage('回收培養液種類必須為 022-02.4, 022-02.1, SAM10, CM2, 或 AM5'),
+  
 ], async (req, res) => {
   try {
     // 檢查驗證結果
@@ -347,7 +358,9 @@ router.put('/:id', [
       subParentBoxCount,
       subChildBoxCount,
       subMediumType,
-      subRecycledMediumType
+      subRecycledMediumType,
+      collectDiscardBoxCount,
+      collectDiscardRecycledMediumType
     } = req.body;
 
     // 檢查工單是否存在
@@ -392,6 +405,8 @@ router.put('/:id', [
     if (subChildBoxCount !== undefined) updateData.subChildBoxCount = subChildBoxCount ? parseInt(subChildBoxCount) : null;
     if (subMediumType !== undefined) updateData.subMediumType = subMediumType || null;
     if (subRecycledMediumType !== undefined) updateData.subRecycledMediumType = subRecycledMediumType || null;
+    if (collectDiscardBoxCount !== undefined) updateData.collectDiscardBoxCount = collectDiscardBoxCount ? parseInt(collectDiscardBoxCount) : null;
+    if (collectDiscardRecycledMediumType !== undefined) updateData.collectDiscardRecycledMediumType = collectDiscardRecycledMediumType || null;
 
     // 更新工單
     const updatedTicket = await prisma.ticket.update({

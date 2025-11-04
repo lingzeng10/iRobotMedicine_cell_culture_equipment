@@ -6,6 +6,7 @@ import {
   DialogActions,
   Button,
   TextField,
+  MenuItem,
   Box,
   Typography,
   Alert,
@@ -36,7 +37,8 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
   // 表單資料狀態
   const [formData, setFormData] = useState<CreateTargetRequest>({
     name: '',
-    description: '',
+    materialType: '',
+    responsiblePerson: '',
     expectedCompletionDate: '',
   });
 
@@ -104,9 +106,14 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
       }
     }
 
-    // 驗證描述長度
-    if (formData.description && formData.description.length > 500) {
-      newErrors.description = '描述不能超過500個字元';
+    // 驗證收集原料種類
+    if (formData.materialType && !['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'].includes(formData.materialType)) {
+      newErrors.materialType = '收集原料種類必須為 022-02.4, 022-02.1, SAM10, CM2, 或 AM5';
+    }
+    
+    // 驗證負責人員
+    if (formData.responsiblePerson && !['OP001', 'OP002', 'OP003'].includes(formData.responsiblePerson)) {
+      newErrors.responsiblePerson = '負責人員必須為 OP001, OP002, 或 OP003';
     }
 
     setErrors(newErrors);
@@ -138,7 +145,8 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
         // 重置表單
         setFormData({
           name: '',
-          description: '',
+          materialType: '',
+          responsiblePerson: '',
           expectedCompletionDate: '',
         });
         setErrors({});
@@ -165,7 +173,8 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
       // 重置表單狀態
       setFormData({
         name: '',
-        description: '',
+        materialType: '',
+        responsiblePerson: '',
         expectedCompletionDate: '',
       });
       setErrors({});
@@ -224,19 +233,39 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
                 placeholder="例如：2024年Q1產品生產目標"
               />
 
-              {/* 目標描述欄位 */}
+              {/* 收集原料種類欄位 */}
               <TextField
                 fullWidth
-                label="目標描述"
-                value={formData.description}
-                onChange={(e) => handleFieldChange('description', e.target.value)}
-                error={!!errors.description}
-                helperText={errors.description || '可選，描述此預生產目標的詳細內容'}
-                multiline
-                rows={3}
+                select
+                label="收集原料種類"
+                value={formData.materialType || ''}
+                onChange={(e) => handleFieldChange('materialType', e.target.value)}
+                error={!!errors.materialType}
+                helperText={errors.materialType || '可選，選擇收集原料種類'}
                 disabled={loading}
-                placeholder="描述此預生產目標的詳細內容、要求或注意事項..."
-              />
+              >
+                <MenuItem value="022-02.4">022-02.4</MenuItem>
+                <MenuItem value="022-02.1">022-02.1</MenuItem>
+                <MenuItem value="SAM10">SAM10</MenuItem>
+                <MenuItem value="CM2">CM2</MenuItem>
+                <MenuItem value="AM5">AM5</MenuItem>
+              </TextField>
+
+              {/* 負責人員欄位 */}
+              <TextField
+                fullWidth
+                select
+                label="負責人員"
+                value={formData.responsiblePerson || ''}
+                onChange={(e) => handleFieldChange('responsiblePerson', e.target.value)}
+                error={!!errors.responsiblePerson}
+                helperText={errors.responsiblePerson || '可選，選擇負責人員'}
+                disabled={loading}
+              >
+                <MenuItem value="OP001">OP001</MenuItem>
+                <MenuItem value="OP002">OP002</MenuItem>
+                <MenuItem value="OP003">OP003</MenuItem>
+              </TextField>
 
               {/* 預計完成時間欄位 */}
               <DatePicker

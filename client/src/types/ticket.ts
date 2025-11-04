@@ -37,6 +37,8 @@ export interface Ticket {
   subChildBoxCount?: number; // 子代盒數（僅繼代工單使用）
   subMediumType?: string; // 繼代培養液種類（僅繼代工單使用：022-02.4, 022-02.1, SAM10, CM2, AM5）
   subRecycledMediumType?: string; // 回收培養液種類（僅繼代工單使用：022-02.4, 022-02.1, SAM10, CM2, AM5, 不回收）
+  collectDiscardBoxCount?: number; // 回收/丟盒數（僅回收/丟棄工單使用）
+  collectDiscardRecycledMediumType?: string; // 回收培養液種類（僅回收/丟棄工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +79,8 @@ export interface UpdateTicketRequest {
   subChildBoxCount?: number; // 子代盒數（僅繼代工單使用）
   subMediumType?: string; // 繼代培養液種類（僅繼代工單使用：022-02.4, 022-02.1, SAM10, CM2, AM5）
   subRecycledMediumType?: string; // 回收培養液種類（僅繼代工單使用：022-02.4, 022-02.1, SAM10, CM2, AM5, 不回收）
+  collectDiscardBoxCount?: number; // 回收/丟盒數（僅回收/丟棄工單使用）
+  collectDiscardRecycledMediumType?: string; // 回收培養液種類（僅回收/丟棄工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
 }
 
 // API 回應介面

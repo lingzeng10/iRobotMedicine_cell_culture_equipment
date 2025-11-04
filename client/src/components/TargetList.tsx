@@ -66,7 +66,8 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
   // 新增目標表單狀態
   const [newTarget, setNewTarget] = useState<CreateTargetRequest>({
     name: '',
-    description: '',
+    materialType: '',
+    responsiblePerson: '',
     expectedCompletionDate: '',
   });
 
@@ -109,7 +110,7 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
           onTargetCreate(response.data);
         }
         setCreateDialogOpen(false);
-        setNewTarget({ name: '', description: '', expectedCompletionDate: '' });
+        setNewTarget({ name: '', materialType: '', responsiblePerson: '', expectedCompletionDate: '' });
         setFormErrors({});
       } else {
         setError(response.message || '建立預生產目標失敗');
@@ -270,7 +271,7 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
                       secondary={
                         <Box>
                           <Typography variant="body2" color="text.secondary" noWrap>
-                            {target.description || '無描述'}
+                            原料: {target.materialType || '未設定'} | 負責人: {target.responsiblePerson || '未指派'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             預計完成: {dayjs(target.expectedCompletionDate).format('YYYY-MM-DD')}
@@ -354,12 +355,33 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
               
               <TextField
                 fullWidth
-                label="目標描述"
-                value={newTarget.description}
-                onChange={(e) => setNewTarget(prev => ({ ...prev, description: e.target.value }))}
-                multiline
-                rows={3}
-              />
+                select
+                label="收集原料種類"
+                value={newTarget.materialType || ''}
+                onChange={(e) => setNewTarget(prev => ({ ...prev, materialType: e.target.value }))}
+                error={!!formErrors.materialType}
+                helperText={formErrors.materialType}
+              >
+                <MenuItem value="022-02.4">022-02.4</MenuItem>
+                <MenuItem value="022-02.1">022-02.1</MenuItem>
+                <MenuItem value="SAM10">SAM10</MenuItem>
+                <MenuItem value="CM2">CM2</MenuItem>
+                <MenuItem value="AM5">AM5</MenuItem>
+              </TextField>
+              
+              <TextField
+                fullWidth
+                select
+                label="負責人員"
+                value={newTarget.responsiblePerson || ''}
+                onChange={(e) => setNewTarget(prev => ({ ...prev, responsiblePerson: e.target.value }))}
+                error={!!formErrors.responsiblePerson}
+                helperText={formErrors.responsiblePerson}
+              >
+                <MenuItem value="OP001">OP001</MenuItem>
+                <MenuItem value="OP002">OP002</MenuItem>
+                <MenuItem value="OP003">OP003</MenuItem>
+              </TextField>
               
               <DatePicker
                 label="預計完成時間"
@@ -411,12 +433,29 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
               
               <TextField
                 fullWidth
-                label="目標描述"
-                value={editingTarget?.description || ''}
-                onChange={(e) => setEditingTarget(prev => prev ? { ...prev, description: e.target.value } : null)}
-                multiline
-                rows={3}
-              />
+                select
+                label="收集原料種類"
+                value={editingTarget?.materialType || ''}
+                onChange={(e) => setEditingTarget(prev => prev ? { ...prev, materialType: e.target.value } : null)}
+              >
+                <MenuItem value="022-02.4">022-02.4</MenuItem>
+                <MenuItem value="022-02.1">022-02.1</MenuItem>
+                <MenuItem value="SAM10">SAM10</MenuItem>
+                <MenuItem value="CM2">CM2</MenuItem>
+                <MenuItem value="AM5">AM5</MenuItem>
+              </TextField>
+              
+              <TextField
+                fullWidth
+                select
+                label="負責人員"
+                value={editingTarget?.responsiblePerson || ''}
+                onChange={(e) => setEditingTarget(prev => prev ? { ...prev, responsiblePerson: e.target.value } : null)}
+              >
+                <MenuItem value="OP001">OP001</MenuItem>
+                <MenuItem value="OP002">OP002</MenuItem>
+                <MenuItem value="OP003">OP003</MenuItem>
+              </TextField>
               
               <DatePicker
                 label="預計完成時間"
@@ -464,10 +503,15 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
                      updateData.name = editingTarget.name.trim();
                    }
                    
-                   // 描述：可選，最大 500 字元
-                   if (editingTarget.description !== undefined) {
-                     updateData.description = editingTarget.description || null;
-                   }
+                    // 收集原料種類：可選，最大 200 字元
+                    if (editingTarget.materialType !== undefined) {
+                      updateData.materialType = editingTarget.materialType || null;
+                    }
+                    
+                    // 負責人員：可選，OP001, OP002, OP003
+                    if (editingTarget.responsiblePerson !== undefined) {
+                      updateData.responsiblePerson = editingTarget.responsiblePerson || null;
+                    }
                    
                    // 日期格式：YYYY-MM-DD
                    if (editingTarget.expectedCompletionDate) {

@@ -274,7 +274,8 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
           const updatedTarget: ProductionTarget = {
             id: response.data.target.id,
             name: response.data.target.name,
-            description: response.data.target.description,
+            materialType: response.data.target.materialType,
+            responsiblePerson: response.data.target.responsiblePerson,
             expectedCompletionDate: response.data.target.expectedCompletionDate,
             status: response.data.target.status,
             createdAt: response.data.target.createdAt,
@@ -1138,7 +1139,8 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                         const updatedTarget: ProductionTarget = {
                           id: updatedSchedule.target.id,
                           name: updatedSchedule.target.name,
-                          description: updatedSchedule.target.description,
+                          materialType: updatedSchedule.target.materialType,
+                          responsiblePerson: updatedSchedule.target.responsiblePerson,
                           expectedCompletionDate: updatedSchedule.target.expectedCompletionDate,
                           status: updatedSchedule.target.status,
                           createdAt: updatedSchedule.target.createdAt,

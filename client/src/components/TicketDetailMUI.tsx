@@ -102,6 +102,11 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
             subMediumType: response.data.subMediumType,
             subRecycledMediumType: response.data.subRecycledMediumType,
           });
+        } else if (response.data.deviceId === 'Collect & Discard') {
+          console.log('回收/丟棄工單欄位檢查:', {
+            collectDiscardBoxCount: response.data.collectDiscardBoxCount,
+            collectDiscardRecycledMediumType: response.data.collectDiscardRecycledMediumType,
+          });
         }
         
         console.log('設置 ticketData 前，當前 ticketData:', ticketData);
@@ -160,6 +165,9 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
       if (data.subChildBoxCount !== undefined) filtered.subChildBoxCount = data.subChildBoxCount;
       if (data.subMediumType !== undefined) filtered.subMediumType = data.subMediumType;
       if (data.subRecycledMediumType !== undefined) filtered.subRecycledMediumType = data.subRecycledMediumType;
+    } else if (deviceId === 'Collect & Discard') {
+      if (data.collectDiscardBoxCount !== undefined) filtered.collectDiscardBoxCount = data.collectDiscardBoxCount;
+      if (data.collectDiscardRecycledMediumType !== undefined) filtered.collectDiscardRecycledMediumType = data.collectDiscardRecycledMediumType;
     }
     
     return filtered;
@@ -400,6 +408,15 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
       }
       if (editForm.subRecycledMediumType && !['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5', '不回收'].includes(editForm.subRecycledMediumType)) {
         errors.subRecycledMediumType = '回收培養液種類必須為 022-02.4, 022-02.1, SAM10, CM2, AM5, 或 不回收';
+      }
+    }
+    
+    if (ticketData?.deviceId === 'Collect & Discard') {
+      if (editForm.collectDiscardBoxCount !== undefined && (isNaN(editForm.collectDiscardBoxCount) || editForm.collectDiscardBoxCount < 0)) {
+        errors.collectDiscardBoxCount = '回收/丟盒數必須為非負整數';
+      }
+      if (editForm.collectDiscardRecycledMediumType && !['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'].includes(editForm.collectDiscardRecycledMediumType)) {
+        errors.collectDiscardRecycledMediumType = '回收培養液種類必須為 022-02.4, 022-02.1, SAM10, CM2, 或 AM5';
       }
     }
     
@@ -1310,6 +1327,60 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
                         )}
                       </>
                     )}
+
+                    {/* 回收/丟棄工單專用欄位 */}
+                    {ticketData.deviceId === 'Collect & Discard' && (
+                      <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <ImageIcon color="primary" />
+                          <Typography variant="body2" color="text.secondary">
+                            回收/丟盒數:
+                          </Typography>
+                        </Box>
+                        {editing ? (
+                          <TextField
+                            fullWidth
+                            type="number"
+                            value={editForm.collectDiscardBoxCount?.toString() || ''}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, collectDiscardBoxCount: e.target.value ? parseInt(e.target.value) : undefined }))}
+                            error={!!formErrors.collectDiscardBoxCount}
+                            helperText={formErrors.collectDiscardBoxCount || '請輸入回收/丟盒數'}
+                            inputProps={{ min: 0 }}
+                          />
+                        ) : (
+                          <Typography variant="body1">
+                            {ticketData.collectDiscardBoxCount !== undefined && ticketData.collectDiscardBoxCount !== null ? `${ticketData.collectDiscardBoxCount} 盒` : '未設定'}
+                          </Typography>
+                        )}
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <ImageIcon color="primary" />
+                          <Typography variant="body2" color="text.secondary">
+                            回收培養液種類:
+                          </Typography>
+                        </Box>
+                        {editing ? (
+                          <TextField
+                            fullWidth
+                            select
+                            value={editForm.collectDiscardRecycledMediumType || ''}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, collectDiscardRecycledMediumType: e.target.value }))}
+                            error={!!formErrors.collectDiscardRecycledMediumType}
+                            helperText={formErrors.collectDiscardRecycledMediumType}
+                          >
+                            <MenuItem value="022-02.4">022-02.4</MenuItem>
+                            <MenuItem value="022-02.1">022-02.1</MenuItem>
+                            <MenuItem value="SAM10">SAM10</MenuItem>
+                            <MenuItem value="CM2">CM2</MenuItem>
+                            <MenuItem value="AM5">AM5</MenuItem>
+                          </TextField>
+                        ) : (
+                          <Typography variant="body1">
+                            {ticketData.collectDiscardRecycledMediumType || '未設定'}
+                          </Typography>
+                        )}
+                      </>
+                    )}
                   </Box>
                 </CardContent>
               </Card>
@@ -1348,7 +1419,7 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
-          {(ticketData?.deviceId === 'AOI' || ticketData?.deviceId === 'Chang Medium' || ticketData?.deviceId === 'Sub & Freeze' || ticketData?.deviceId === 'Sub' || ticketData?.deviceId === 'Thaw' || ticketData?.deviceId === 'Freeze') && (
+          {(ticketData?.deviceId === 'AOI' || ticketData?.deviceId === 'Chang Medium' || ticketData?.deviceId === 'Sub & Freeze' || ticketData?.deviceId === 'Sub' || ticketData?.deviceId === 'Thaw' || ticketData?.deviceId === 'Freeze' || ticketData?.deviceId === 'Collect & Discard') && (
             <>
               {!editing ? (
                 <Button onClick={handleEditToggle} disabled={loading}>

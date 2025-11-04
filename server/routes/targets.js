@@ -115,7 +115,8 @@ router.get('/:id', [
  * POST /api/targets
  * 請求體：
  * - name: 目標名稱 (必填)
- * - description: 目標描述 (可選)
+ * - materialType: 收集原料種類 (可選)
+ * - responsiblePerson: 負責人員 (可選：OP001, OP002, OP003)
  * - expectedCompletionDate: 預計完成時間 (必填)
  */
 router.post('/', [
@@ -125,11 +126,14 @@ router.post('/', [
     .withMessage('目標名稱不能為空')
     .isLength({ min: 2, max: 100 })
     .withMessage('目標名稱長度必須在 2-100 字元之間'),
-  body('description')
+  body('materialType')
     .optional()
-    .isString()
-    .isLength({ max: 500 })
-    .withMessage('目標描述不能超過 500 字元'),
+    .isIn(['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'])
+    .withMessage('收集原料種類必須為 022-02.4, 022-02.1, SAM10, CM2, 或 AM5'),
+  body('responsiblePerson')
+    .optional()
+    .isIn(['OP001', 'OP002', 'OP003'])
+    .withMessage('負責人員必須為 OP001, OP002, 或 OP003'),
   body('expectedCompletionDate')
     .isString()
     .notEmpty()
@@ -148,7 +152,7 @@ router.post('/', [
       });
     }
 
-    const { name, description, expectedCompletionDate } = req.body;
+    const { name, materialType, responsiblePerson, expectedCompletionDate } = req.body;
 
     // 建立新目標並自動創建排程（使用事務確保一致性）
     const result = await prisma.$transaction(async (tx) => {
@@ -156,7 +160,8 @@ router.post('/', [
       const target = await tx.productionTarget.create({
         data: {
           name,
-          description: description || null,
+          materialType: materialType || null,
+          responsiblePerson: responsiblePerson || null,
           expectedCompletionDate,
           status: 'PLANNING', // 預設狀態為規劃中
         },
@@ -264,7 +269,8 @@ router.post('/', [
  * PUT /api/targets/:id
  * 請求體：
  * - name: 目標名稱 (可選)
- * - description: 目標描述 (可選)
+ * - materialType: 收集原料種類 (可選)
+ * - responsiblePerson: 負責人員 (可選：OP001, OP002, OP003)
  * - expectedCompletionDate: 預計完成時間 (可選)
  * - status: 目標狀態 (可選)
  */
@@ -275,11 +281,14 @@ router.put('/:id', [
     .isString()
     .isLength({ min: 2, max: 100 })
     .withMessage('目標名稱長度必須在 2-100 字元之間'),
-  body('description')
+  body('materialType')
     .optional()
-    .isString()
-    .isLength({ max: 500 })
-    .withMessage('目標描述不能超過 500 字元'),
+    .isIn(['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'])
+    .withMessage('收集原料種類必須為 022-02.4, 022-02.1, SAM10, CM2, 或 AM5'),
+  body('responsiblePerson')
+    .optional()
+    .isIn(['OP001', 'OP002', 'OP003'])
+    .withMessage('負責人員必須為 OP001, OP002, 或 OP003'),
   body('expectedCompletionDate')
     .optional()
     .isString()
@@ -306,7 +315,8 @@ router.put('/:id', [
 
     // 只更新提供的欄位
     if (req.body.name !== undefined) updateData.name = req.body.name;
-    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.materialType !== undefined) updateData.materialType = req.body.materialType || null;
+    if (req.body.responsiblePerson !== undefined) updateData.responsiblePerson = req.body.responsiblePerson || null;
     if (req.body.expectedCompletionDate !== undefined) updateData.expectedCompletionDate = req.body.expectedCompletionDate;
     if (req.body.status !== undefined) updateData.status = req.body.status;
 
