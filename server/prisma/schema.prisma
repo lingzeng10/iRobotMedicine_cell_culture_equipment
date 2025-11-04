@@ -14,6 +14,33 @@ model Ticket {
   deviceId    String   // 設備 ID
   imageId     String?  // 影像 ID（可選）
   status      String   @default("OPEN") // 工單狀態，預設為 OPEN
+  magnification String? // 拍照倍數（僅 AOI 工單使用，可選：4X, 10X, 20X）
+  photoCount    Int?     // 張數（僅 AOI 工單使用，可選：3, 6, 9, 12, 16, 20, 27）
+  mediumType    String?  // 培養液種類（僅換液工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
+  recycledMediumType String? // 回收培養液種類（僅換液工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
+  parentBoxCount Int? // 親代盒數（僅繼代凍存工單使用）
+  childBoxCount Int? // 子代盒數（僅繼代凍存工單使用）
+  subcultureMediumType String? // 繼代培養液種類（僅繼代凍存工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
+  subcultureRecycledMediumType String? // 回收培養液種類（僅繼代凍存工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5, 不回收）
+  frozenCellBoxCount Int? // 凍存細胞盒數（僅繼代凍存工單使用）
+  frozenTubeSpec String? // 凍管規格（僅繼代凍存工單使用，可選：2ml, 5ml）
+  frozenMediumType String? // 凍液種類（僅繼代凍存工單使用，可選：凍液A, 凍液B）
+  frozenTubeCount Int? // 凍管支數（僅繼代凍存工單使用）
+  thawCellName String? // 解凍細胞（僅解凍工單使用）
+  thawCellGeneration Int? // 細胞凍存代數（僅解凍工單使用）
+  thawOriginalMediumType String? // 細胞凍存原培養液（僅解凍工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5, 無紀錄）
+  thawFreezeDate String? // 凍管凍存日期（僅解凍工單使用）
+  thawTubeCount Int? // 解凍支數（僅解凍工單使用）
+  thawMediumType String? // 解凍培養液（僅解凍工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
+  thawCultureBoxCount Int? // 解凍培養盒數（僅解凍工單使用）
+  freezeBoxCount Int? // 凍存盒數（僅凍存工單使用）
+  freezeTubeCount Int? // 凍管數量（僅凍存工單使用）
+  freezeTubeSpec String? // 凍管規格（僅凍存工單使用，可選：2ml, 5ml）
+  freezeMediumType String? // 凍液種類（僅凍存工單使用，可選：凍液A, 凍液B）
+  subParentBoxCount Int? // 親代盒數（僅繼代工單使用）
+  subChildBoxCount Int? // 子代盒數（僅繼代工單使用）
+  subMediumType String? // 繼代培養液種類（僅繼代工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
+  subRecycledMediumType String? // 回收培養液種類（僅繼代工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5, 不回收）
   createdAt   DateTime @default(now()) // 建立時間
   updatedAt   DateTime @updatedAt // 更新時間
   

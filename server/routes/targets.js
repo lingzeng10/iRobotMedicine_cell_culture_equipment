@@ -150,20 +150,104 @@ router.post('/', [
 
     const { name, description, expectedCompletionDate } = req.body;
 
-    // 建立新目標
-    const target = await prisma.productionTarget.create({
-      data: {
-        name,
-        description: description || null,
-        expectedCompletionDate,
-        status: 'PLANNING', // 預設狀態為規劃中
-      },
+    // 建立新目標並自動創建排程（使用事務確保一致性）
+    const result = await prisma.$transaction(async (tx) => {
+      // 建立新目標
+      const target = await tx.productionTarget.create({
+        data: {
+          name,
+          description: description || null,
+          expectedCompletionDate,
+          status: 'PLANNING', // 預設狀態為規劃中
+        },
+      });
+
+      // 自動創建排程邏輯
+      // 第一個工單：解凍工單
+      // 後續工單：AOI、AOI、換液、AOI、AOI、換液（每6個為一個循環）
+      const firstTicketType = 'Thaw'; // 解凍工單
+      const ticketPattern = ['AOI', 'AOI', 'Chang Medium', 'AOI', 'AOI', 'Chang Medium'];
+      
+      // 計算日期範圍（從今天到預計完成日期）
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(expectedCompletionDate + 'T00:00:00');
+      endDate.setHours(0, 0, 0, 0);
+
+      // 如果預計完成日期在今天或之後，才創建排程
+      if (endDate >= today) {
+        const schedulesCreated = [];
+        let patternIndex = 0;
+        const currentDate = new Date(today);
+
+        // 格式化日期為 YYYY-MM-DD 的輔助函數（使用本地時間）
+        const formatDate = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+
+        // 遍歷從今天到預計完成日期的每一天
+        while (currentDate <= endDate) {
+          // 獲取當天的工單類型
+          // 第一個工單（patternIndex === 0）：解凍工單
+          // 後續工單：按照循環模式
+          let deviceId;
+          if (patternIndex === 0) {
+            deviceId = firstTicketType;
+          } else {
+            // 從 patternIndex - 1 開始，因為第一個已經用了解凍工單
+            const cycleIndex = (patternIndex - 1) % ticketPattern.length;
+            deviceId = ticketPattern[cycleIndex];
+          }
+          
+          // 格式化日期為 YYYY-MM-DD（使用本地時間）
+          const dateString = formatDate(currentDate);
+
+          // 創建工單
+          const ticket = await tx.ticket.create({
+            data: {
+              deviceId,
+              status: 'OPEN',
+            },
+          });
+
+          // 創建排程
+          const schedule = await tx.ticketSchedule.create({
+            data: {
+              ticketId: ticket.id,
+              targetId: target.id,
+              scheduledDate: dateString,
+              priority: 'MEDIUM',
+              status: 'OPEN',
+            },
+          });
+
+          schedulesCreated.push({
+            ticketId: ticket.id,
+            scheduleId: schedule.id,
+            date: dateString,
+            deviceId,
+          });
+
+          // 移動到下一天
+          currentDate.setDate(currentDate.getDate() + 1);
+          patternIndex++;
+        }
+
+        console.log(`為目標 ${target.id} 自動創建了 ${schedulesCreated.length} 個排程`);
+        return { target, schedulesCount: schedulesCreated.length };
+      }
+
+      return { target, schedulesCount: 0 };
     });
 
     res.status(201).json({
       success: true,
-      message: '建立預生產目標成功',
-      data: target,
+      message: `建立預生產目標成功${result.schedulesCount > 0 ? `，已自動創建 ${result.schedulesCount} 個排程` : ''}`,
+      data: result.target,
+      schedulesCreated: result.schedulesCount,
     });
   } catch (error) {
     console.error('建立預生產目標錯誤:', error);

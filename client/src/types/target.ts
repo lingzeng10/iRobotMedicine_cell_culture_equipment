@@ -92,4 +92,5 @@ export interface UpdateScheduleRequest {
   scheduledTime?: string;
   priority?: 'HIGH' | 'MEDIUM' | 'LOW';
   status?: string;
+  deviceId?: string; // 工單類型（deviceId）
 }

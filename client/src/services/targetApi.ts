@@ -63,9 +63,23 @@ export class TargetService {
       return response.data;
     } catch (error: any) {
       console.error('取得預生產目標列表失敗:', error);
+      console.error('API URL:', getApiBaseUrl());
+      console.error('錯誤詳情:', error.response?.data || error.message);
+      
+      let errorMessage = '取得預生產目標列表失敗';
+      if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+        errorMessage = '無法連接到後端服務，請確認後端服務是否運行';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'API 端點不存在，請確認後端服務配置';
+      } else if (error.response?.status === 500) {
+        errorMessage = '後端服務錯誤，請檢查後端服務控制台';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
       return {
         success: false,
-        message: error.response?.data?.message || '取得預生產目標列表失敗',
+        message: errorMessage,
       };
     }
   }
@@ -146,7 +160,7 @@ export class TargetService {
    * 取得指定目標的工單排程
    * @param targetId 目標 ID
    */
-  static async getTargetSchedules(targetId: string): Promise<ApiResponse<TicketSchedule[]>> {
+  static async getTargetSchedules(targetId: string): Promise<ApiResponse<TicketScheduleWithRelations[]>> {
     try {
       const response = await api.get(`/schedules/target/${targetId}`);
       return response.data;
@@ -211,7 +225,7 @@ export class TargetService {
   static async updateSchedule(
     scheduleId: string, 
     data: UpdateScheduleRequest
-  ): Promise<ApiResponse<TicketSchedule>> {
+  ): Promise<ApiResponse<TicketScheduleWithRelations>> {
     try {
       const response = await api.put(`/schedules/${scheduleId}`, data);
       return response.data;

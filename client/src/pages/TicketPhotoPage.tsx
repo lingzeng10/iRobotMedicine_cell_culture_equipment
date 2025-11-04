@@ -315,12 +315,47 @@ const TicketPhotoPage: React.FC = () => {
     }
   };
 
+  // 獲取動態 API 基礎 URL
+  const getApiBaseUrl = (): string => {
+    if (process.env.REACT_APP_API_URL) {
+      return process.env.REACT_APP_API_URL;
+    }
+    const currentHost = window.location.hostname;
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    } else {
+      return `http://${currentHost}:5000/api`;
+    }
+  };
+
   // 查看照片
   const handleViewPhoto = (url: string) => {
     console.log('查看照片 URL:', url);
+    console.log('當前 hostname:', window.location.hostname);
+    
     // 確保URL是完整的，包含協議和主機
-    const fullUrl = url.startsWith('http') ? url : `http://localhost:5000${url}`;
-    console.log('完整 URL:', fullUrl);
+    let fullUrl: string;
+    if (url.startsWith('http')) {
+      // 如果已經是完整 URL，直接使用
+      fullUrl = url;
+    } else if (url.startsWith('/api/')) {
+      // 如果URL是 /api/ 開頭，需要構建完整 URL
+      const apiBaseUrl = getApiBaseUrl();
+      // url 格式: /api/photos/123/view
+      // 移除開頭的 '/api'，保留後面的路徑
+      // apiBaseUrl 格式: http://localhost:5000/api
+      // 最終: http://localhost:5000/api/photos/123/view
+      const pathAfterApi = url.substring(4); // 移除 '/api' (4個字符)
+      fullUrl = `${apiBaseUrl}${pathAfterApi}`;
+    } else {
+      // 如果URL是相對路徑（不是 /api/ 開頭），拼接動態 API URL
+      const apiBaseUrl = getApiBaseUrl();
+      // 確保 URL 以 / 開頭
+      const urlPath = url.startsWith('/') ? url : `/${url}`;
+      fullUrl = `${apiBaseUrl}${urlPath}`;
+    }
+    console.log('構建的完整 URL:', fullUrl);
+    console.log('API Base URL:', getApiBaseUrl());
     
     // 嘗試在新標籤頁中打開照片
     try {

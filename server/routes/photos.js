@@ -157,8 +157,35 @@ router.get('/:id/view', async (req, res) => {
       });
     }
 
-    // 檢查文件是否存在
-    if (!fs.existsSync(photo.filePath)) {
+    // 確定最終文件路徑（容錯處理）
+    let finalPath = photo.filePath;
+    
+    // 如果數據庫中的路徑不存在，嘗試標準上傳目錄
+    if (!fs.existsSync(finalPath)) {
+      const standardPath = path.join(uploadDir, photo.filename);
+      if (fs.existsSync(standardPath)) {
+        // 文件在標準位置，更新數據庫中的路徑
+        console.log(`警告: 照片 ${photo.id} 的路徑不匹配，正在修復...`);
+        finalPath = standardPath;
+        
+        // 異步更新數據庫（不阻塞響應）
+        prisma.photo.update({
+          where: { id: photo.id },
+          data: { filePath: standardPath }
+        }).catch(err => {
+          console.error('更新照片路徑失敗:', err);
+        });
+      } else {
+        // 兩個路徑都不存在
+        return res.status(404).json({
+          success: false,
+          message: '照片文件不存在'
+        });
+      }
+    }
+
+    // 檢查最終路徑是否存在
+    if (!fs.existsSync(finalPath)) {
       return res.status(404).json({
         success: false,
         message: '照片文件不存在'
@@ -170,7 +197,7 @@ router.get('/:id/view', async (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${photo.originalName}"`);
     
     // 發送文件
-    res.sendFile(path.resolve(photo.filePath));
+    res.sendFile(path.resolve(finalPath));
 
   } catch (error) {
     console.error('查看照片錯誤:', error);

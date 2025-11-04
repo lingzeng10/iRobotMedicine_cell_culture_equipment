@@ -172,7 +172,8 @@ const AOIPhotoUpload: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`http://localhost:5000/api/photos/ticket/${id}`);
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await axios.get(`${apiBaseUrl}/photos/ticket/${id}`);
       if (response.data.success) {
         setPhotos(response.data.data);
       } else {
@@ -226,7 +227,8 @@ const AOIPhotoUpload: React.FC = () => {
         formData.append('description', description.trim());
       }
 
-      const response = await axios.post('http://localhost:5000/api/photos/upload', formData, {
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await axios.post(`${apiBaseUrl}/photos/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -256,7 +258,8 @@ const AOIPhotoUpload: React.FC = () => {
     }
 
     try {
-      const response = await axios.delete(`http://localhost:5000/api/photos/${photoId}`);
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await axios.delete(`${apiBaseUrl}/photos/${photoId}`);
       if (response.data.success) {
         setSuccess('照片刪除成功！');
         loadPhotos(ticketId); // 重新載入照片列表
@@ -269,9 +272,45 @@ const AOIPhotoUpload: React.FC = () => {
     }
   };
 
+  // 獲取動態 API 基礎 URL
+  const getApiBaseUrl = (): string => {
+    if (process.env.REACT_APP_API_URL) {
+      return process.env.REACT_APP_API_URL;
+    }
+    const currentHost = window.location.hostname;
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    } else {
+      return `http://${currentHost}:5000/api`;
+    }
+  };
+
   // 查看照片
   const handleViewPhoto = (photoUrl: string) => {
-    window.open(`http://localhost:5000${photoUrl}`, '_blank');
+    console.log('查看照片 URL:', photoUrl);
+    console.log('當前 hostname:', window.location.hostname);
+    
+    let fullUrl: string;
+    if (photoUrl.startsWith('http')) {
+      // 如果已經是完整 URL，直接使用
+      fullUrl = photoUrl;
+    } else if (photoUrl.startsWith('/api/')) {
+      // 如果URL是 /api/ 開頭，需要構建完整 URL
+      const apiBaseUrl = getApiBaseUrl();
+      // url 格式: /api/photos/123/view
+      // 移除開頭的 '/api'，保留後面的路徑
+      // apiBaseUrl 格式: http://localhost:5000/api
+      // 最終: http://localhost:5000/api/photos/123/view
+      const pathAfterApi = photoUrl.substring(4); // 移除 '/api' (4個字符)
+      fullUrl = `${apiBaseUrl}${pathAfterApi}`;
+    } else {
+      // 如果URL是相對路徑，拼接動態 API URL
+      const apiBaseUrl = getApiBaseUrl();
+      const urlPath = photoUrl.startsWith('/') ? photoUrl : `/${photoUrl}`;
+      fullUrl = `${apiBaseUrl}${urlPath}`;
+    }
+    console.log('構建的完整 URL:', fullUrl);
+    window.open(fullUrl, '_blank');
   };
 
   // 返回主頁

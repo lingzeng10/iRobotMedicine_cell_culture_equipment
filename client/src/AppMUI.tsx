@@ -458,7 +458,8 @@ const AppMUI: React.FC = () => {
         {/* 工單詳情對話框 */}
         <TicketDetailMUI
           open={ticketDetailDialogOpen}
-          ticket={selectedTicket || undefined}
+          ticketId={selectedTicket?.id} // 優先使用 ticketId，確保從 API 重新載入完整資料
+          ticket={selectedTicket || undefined} // 保留 ticket prop 作為備用
           onClose={() => setTicketDetailDialogOpen(false)}
           onUpdate={handleTicketUpdate}
         />
@@ -473,10 +474,20 @@ const AppMUI: React.FC = () => {
               right: 16, 
               zIndex: 9999,
               minWidth: 300,
+              maxWidth: 500,
             }}
             onClose={() => setError(null)}
           >
-            {error}
+            <Typography variant="body2" fontWeight="bold">
+              {error}
+            </Typography>
+            {error.includes('無法連接到後端服務') && (
+              <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                請確認：
+                <br />1. 後端服務是否正在運行（端口 5000）
+                <br />2. 檢查瀏覽器控制台（F12）查看詳細錯誤
+              </Typography>
+            )}
           </Alert>
         )}
 

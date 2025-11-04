@@ -1,0 +1,3 @@
+FRONTEND_URL=https://irmed.workorder.ngrok.dev
+BACKEND_URL=https://irmed.woapi.ngrok.dev
+

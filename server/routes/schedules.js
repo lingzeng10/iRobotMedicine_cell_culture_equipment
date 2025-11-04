@@ -53,6 +53,18 @@ router.post('/', [
 
     const { ticketId, targetId, scheduledDate, scheduledTime, priority = 'MEDIUM' } = req.body;
 
+    // 檢查日期不能是今天之前
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const scheduleDate = new Date(scheduledDate + 'T00:00:00');
+    
+    if (scheduleDate < today) {
+      return res.status(400).json({
+        success: false,
+        message: '不能排程今日以前的工單，請選擇今日或未來的日期',
+      });
+    }
+
     // 檢查工單是否存在
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
@@ -143,6 +155,7 @@ router.post('/', [
  * - scheduledTime: 排程時間 (可選)
  * - priority: 優先級 (可選)
  * - status: 排程狀態 (可選)
+ * - deviceId: 工單類型 (可選，更新工單的 deviceId)
  */
 router.put('/:id', [
   param('id').isString().notEmpty().withMessage('排程 ID 不能為空'),
@@ -164,6 +177,11 @@ router.put('/:id', [
     .optional()
     .isIn(['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'])
     .withMessage('排程狀態必須為 OPEN, IN_PROGRESS, COMPLETED, 或 CANCELLED'),
+  body('deviceId')
+    .optional()
+    .isString()
+    .notEmpty()
+    .withMessage('工單類型不能為空'),
 ], async (req, res) => {
   try {
     // 驗證參數和請求體
@@ -180,7 +198,21 @@ router.put('/:id', [
     const updateData = {};
 
     // 只更新提供的欄位
-    if (req.body.scheduledDate !== undefined) updateData.scheduledDate = req.body.scheduledDate;
+    if (req.body.scheduledDate !== undefined) {
+      // 檢查日期不能是今天之前
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const scheduleDate = new Date(req.body.scheduledDate + 'T00:00:00');
+      
+      if (scheduleDate < today) {
+        return res.status(400).json({
+          success: false,
+          message: '不能排程今日以前的工單，請選擇今日或未來的日期',
+        });
+      }
+      
+      updateData.scheduledDate = req.body.scheduledDate;
+    }
     if (req.body.scheduledTime !== undefined) updateData.scheduledTime = req.body.scheduledTime;
     if (req.body.priority !== undefined) updateData.priority = req.body.priority;
     if (req.body.status !== undefined) updateData.status = req.body.status;
@@ -188,12 +220,26 @@ router.put('/:id', [
     // 檢查排程是否存在
     const existingSchedule = await prisma.ticketSchedule.findUnique({
       where: { id },
+      include: {
+        ticket: true,
+      },
     });
 
     if (!existingSchedule) {
       return res.status(404).json({
         success: false,
         message: '工單排程不存在',
+      });
+    }
+
+    // 如果提供了 deviceId，需要更新對應的工單
+    if (req.body.deviceId !== undefined) {
+      // 更新工單的 deviceId
+      await prisma.ticket.update({
+        where: { id: existingSchedule.ticketId },
+        data: {
+          deviceId: req.body.deviceId,
+        },
       });
     }
 
@@ -206,6 +252,77 @@ router.put('/:id', [
         target: true,
       },
     });
+
+    // 如果更新了狀態為「進行中」，檢查是否為該目標的第一個排程
+    if (req.body.status === 'IN_PROGRESS') {
+      const targetId = existingSchedule.targetId;
+      
+      console.log(`[排程更新] 檢查排程 ${id}，目標 ${targetId}，狀態已更新為「進行中」`);
+      
+      // 先查詢目標的當前狀態
+      const currentTarget = await prisma.productionTarget.findUnique({
+        where: { id: targetId },
+      });
+      
+      console.log(`[排程更新] 目標 ${targetId} 當前狀態: ${currentTarget?.status}`);
+      
+      // 如果目標狀態已經是「進行中」，不需要再次更新
+      if (currentTarget && currentTarget.status !== 'IN_PROGRESS') {
+        // 查詢該目標的所有排程，按日期和時間排序
+        // 使用 JavaScript 排序以正確處理 null 值
+        const allSchedulesRaw = await prisma.ticketSchedule.findMany({
+          where: { targetId },
+        });
+
+        console.log(`[排程更新] 目標 ${targetId} 共有 ${allSchedulesRaw.length} 個排程`);
+
+        // 在 JavaScript 中排序：按日期、時間、創建時間排序
+        const allSchedules = allSchedulesRaw.sort((a, b) => {
+          // 先按日期排序
+          const dateCompare = a.scheduledDate.localeCompare(b.scheduledDate);
+          if (dateCompare !== 0) return dateCompare;
+          
+          // 如果日期相同，按時間排序（null 值排在後面）
+          if (a.scheduledTime && b.scheduledTime) {
+            const timeCompare = a.scheduledTime.localeCompare(b.scheduledTime);
+            if (timeCompare !== 0) return timeCompare;
+          } else if (a.scheduledTime && !b.scheduledTime) {
+            return -1; // a 有時間，b 沒有，a 排在前面
+          } else if (!a.scheduledTime && b.scheduledTime) {
+            return 1; // a 沒有時間，b 有，b 排在前面
+          }
+          
+          // 如果日期和時間都相同（或都為 null），按創建時間排序
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+        // 顯示排序後的第一個排程
+        if (allSchedules.length > 0) {
+          console.log(`[排程更新] 第一個排程 ID: ${allSchedules[0].id}，日期: ${allSchedules[0].scheduledDate}，時間: ${allSchedules[0].scheduledTime || '無'}`);
+          console.log(`[排程更新] 當前更新的排程 ID: ${id}`);
+        }
+
+        // 檢查更新後的排程是否為第一個排程
+        if (allSchedules.length > 0 && allSchedules[0].id === id) {
+          console.log(`[排程更新] ✓ 這是第一個排程，開始更新目標狀態為「進行中」`);
+          
+          // 這是第一個排程，更新目標狀態為「進行中」
+          await prisma.productionTarget.update({
+            where: { id: targetId },
+            data: { status: 'IN_PROGRESS' },
+          });
+          
+          // 更新回傳的目標資料
+          updatedSchedule.target.status = 'IN_PROGRESS';
+          
+          console.log(`[排程更新] ✓ 目標 ${targetId} 的第一個排程已開始，已自動更新目標狀態為「進行中」`);
+        } else {
+          console.log(`[排程更新] ✗ 這不是第一個排程，不更新目標狀態`);
+        }
+      } else {
+        console.log(`[排程更新] ✗ 目標狀態已經是「進行中」，無需更新`);
+      }
+    }
 
     res.json({
       success: true,

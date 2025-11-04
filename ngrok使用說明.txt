@@ -1,0 +1,123 @@
+========================================
+工單管理系統 - ngrok 使用說明
+========================================
+
+📋 前置要求
+-----------
+1. 已安裝 ngrok (https://ngrok.com/download)
+2. 已升級 ngrok Pro 版本
+3. 已在 ngrok 中創建兩個保留域名：
+   - 前端: irmed.workorder.ngrok.dev
+   - 後端: irmed.woapi.ngrok.dev
+4. 已登入 ngrok 帳號（執行: ngrok config add-authtoken YOUR_TOKEN）
+
+
+🚀 快速啟動
+-----------
+1. 雙擊執行: start-with-ngrok.bat
+2. 等待所有服務啟動（約 30 秒）
+3. 前端頁面會自動在瀏覽器打開
+4. 分享前端 URL 給朋友: https://irmed.workorder.ngrok.dev
+
+
+📁 文件說明
+-----------
+- ngrok-config.txt: 存儲兩個固定的 ngrok 域名
+  * 可以手動編輯此文件修改域名
+  * 格式：
+    FRONTEND_URL=https://您的固定域名
+    BACKEND_URL=https://您的固定域名
+
+- start-with-ngrok.bat: 自動化啟動腳本
+  * 讀取配置文件
+  * 啟動後端服務（端口 5000）
+  * 啟動兩個 ngrok tunnels
+  * 設置環境變數並啟動前端（端口 3000）
+
+
+🔧 手動啟動方式
+---------------
+如果需要手動啟動，按以下順序：
+
+1. 啟動後端服務：
+   cd server
+   npm run dev
+
+2. 啟動前端 ngrok tunnel：
+   ngrok http 3000 --domain=irmed.workorder.ngrok.dev
+
+3. 啟動後端 ngrok tunnel：
+   ngrok http 5000 --domain=irmed.woapi.ngrok.dev
+
+4. 設置環境變數並啟動前端：
+   set REACT_APP_API_URL=https://irmed.woapi.ngrok.dev/api
+   cd client
+   npm start
+
+
+🌐 URL 說明
+-----------
+- 前端 URL（分享給朋友）:
+  https://irmed.workorder.ngrok.dev
+
+- 後端 URL（內部使用，不需要分享）:
+  https://irmed.woapi.ngrok.dev
+
+朋友只需要訪問前端 URL，後端 URL 會自動在前端代碼中使用。
+
+
+✅ 驗證步驟
+-----------
+1. 訪問前端 URL: https://irmed.workorder.ngrok.dev
+2. 打開瀏覽器開發者工具（F12）
+3. 查看 Network 標籤，確認 API 請求使用的是後端 URL
+4. 如果所有請求都成功，表示配置正確
+
+
+⚠️ 常見問題
+-----------
+Q: 提示找不到 ngrok？
+A: 請確保已安裝 ngrok 並添加到系統 PATH 環境變數
+
+Q: 提示端口被佔用？
+A: 請關閉佔用端口 3000 或 5000 的其他程序
+
+Q: ngrok tunnel 啟動失敗？
+A: 請確認：
+   - 已正確登入 ngrok 帳號
+   - 域名已在 ngrok 儀表板中創建
+   - 域名格式正確（不包含 http:// 或 https://）
+
+Q: 前端無法連接後端？
+A: 請檢查：
+   - 兩個 ngrok tunnels 都已啟動
+   - REACT_APP_API_URL 環境變數正確設置
+   - 瀏覽器 Console 中沒有 CORS 錯誤
+
+Q: 出現 "Invalid Host header" 錯誤？
+A: 啟動腳本已自動設置 DANGEROUSLY_DISABLE_HOST_CHECK=true
+   此設置允許通過 ngrok 域名訪問，僅在開發環境生效
+   如果仍有問題，請確認：
+   - 使用 start-with-ngrok.bat 啟動（而不是直接 npm start）
+   - ngrok tunnel 已正確啟動
+
+Q: 每次重啟都需要重新設置嗎？
+A: 不需要！使用固定域名後，URL 永遠不變，只需要：
+   - 每次啟動時執行 start-with-ngrok.bat
+   - 或者手動啟動所有服務
+
+
+💡 提示
+-------
+- 固定域名設置後，URL 永遠不變，方便分享給朋友
+- 前端和後端使用不同的域名，但朋友只需要知道前端 URL
+- 所有 API 請求會自動使用後端的 ngrok URL
+
+
+📞 需要幫助？
+-------------
+如果遇到問題，請檢查：
+1. ngrok 狀態（在 ngrok 儀表板查看）
+2. 服務日誌（在各個命令窗口查看）
+3. 瀏覽器 Console（F12 查看錯誤訊息）
+
