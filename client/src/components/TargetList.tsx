@@ -258,7 +258,7 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
                     <ListItemText
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle1" noWrap>
+                          <Typography variant="subtitle1" noWrap component="span">
                             {target.name}
                           </Typography>
                           <Chip
@@ -269,15 +269,16 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
                         </Box>
                       }
                       secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" noWrap>
+                        <Box component="div">
+                          <Typography variant="body2" color="text.secondary" noWrap component="span">
                             原料: {target.materialType || '未設定'} | 負責人: {target.responsiblePerson || '未指派'}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" component="span" sx={{ display: 'block' }}>
                             預計完成: {dayjs(target.expectedCompletionDate).format('YYYY-MM-DD')}
                           </Typography>
                         </Box>
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                     />
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <Tooltip title="編輯">

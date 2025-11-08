@@ -75,7 +75,8 @@ export const getAvailableStations = (): string[] => {
 const STATUS_TO_TEXT_MAP: { [key: string]: string } = {
   'OPEN': '開啟',
   'IN_PROGRESS': '進行中',
-  'CLOSED': '已完成',
+  'COMPLETED': '已完成',
+  'CLOSED': '已完成', // 兼容舊的狀態值
   'CANCELLED': '已取消',
 };
 
@@ -83,7 +84,8 @@ const STATUS_TO_TEXT_MAP: { [key: string]: string } = {
 const STATUS_TO_COLOR_MAP: { [key: string]: string } = {
   'OPEN': 'default',
   'IN_PROGRESS': 'primary',
-  'CLOSED': 'success',
+  'COMPLETED': 'success',
+  'CLOSED': 'success', // 兼容舊的狀態值
   'CANCELLED': 'error',
 };
 
@@ -101,6 +103,7 @@ export const getStatusText = (status: string): string => {
  * @param status 工單狀態
  * @returns 顏色名稱，如果找不到對應的映射則返回 'default'
  */
-export const getStatusColor = (status: string): string => {
-  return STATUS_TO_COLOR_MAP[status] || 'default';
+export const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning' => {
+  const color = STATUS_TO_COLOR_MAP[status] || 'default';
+  return color as 'default' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
 };

@@ -60,13 +60,23 @@ interface TicketScheduleProps {
   selectedTarget: ProductionTarget | null; // 選中的預生產目標
   onTicketSelect: (ticket: Ticket) => void; // 工單選擇回調函數
   onTargetUpdate?: (targetId: string, updatedTarget: ProductionTarget) => void; // 目標更新回調函數
+  onTargetDelete?: (targetId: string) => void; // 目標刪除回調函數
+  onScheduleUpdate?: () => void; // 排程更新回調函數
+  initialDate?: string; // 初始日期（用於新增排程時預設日期）
+  showTodaySchedules?: boolean; // 是否顯示今日排程對話框
+  onTodaySchedulesClose?: () => void; // 今日排程對話框關閉回調
 }
 
 // 工單排程元件
 const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({ 
   selectedTarget, 
   onTicketSelect,
-  onTargetUpdate
+  onTargetUpdate,
+  onTargetDelete,
+  onScheduleUpdate,
+  initialDate,
+  showTodaySchedules = false,
+  onTodaySchedulesClose,
 }) => {
   // 狀態管理
   const [schedules, setSchedules] = useState<TicketScheduleWithRelations[]>([]);
@@ -102,7 +112,38 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
    */
   const loadSchedules = useCallback(async () => {
     if (!selectedTarget) {
-      setSchedules([]);
+      // 如果沒有選中目標，載入今日工單
+      const today = dayjs().format('YYYY-MM-DD');
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await TargetService.getSchedulesByDate(today);
+        if (response.success && response.data) {
+          const priorityOrder: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+          const sorted = response.data.sort((a, b) => {
+            const priorityDiff = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+            if (priorityDiff !== 0) return priorityDiff;
+            const timeA = a.scheduledTime || '23:59';
+            const timeB = b.scheduledTime || '23:59';
+            return timeA.localeCompare(timeB);
+          });
+          setSchedules(sorted);
+          setTodaySchedules(sorted);
+        } else {
+          setSchedules([]);
+          setTodaySchedules([]);
+        }
+        const ticketResponse = await TicketService.getTickets();
+        if (ticketResponse.success && ticketResponse.data) {
+          setTickets(ticketResponse.data.tickets);
+        }
+      } catch (error: any) {
+        console.error('載入今日排程錯誤:', error);
+        setError('載入今日排程失敗，請稍後再試');
+        setSchedules([]);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -294,6 +335,11 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
         });
         setNewScheduleDeviceId('');
         setFormErrors({});
+        
+        // 調用排程更新回調
+        if (onScheduleUpdate) {
+          onScheduleUpdate();
+        }
       } else {
         setError(response.message || '建立工單排程失敗');
       }
@@ -320,6 +366,11 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
         setTodaySchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
         // 更新目標排程列表
         setSchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
+        
+        // 調用排程更新回調
+        if (onScheduleUpdate) {
+          onScheduleUpdate();
+        }
       } else {
         setError(response.message || '刪除工單排程失敗');
       }
@@ -445,37 +496,54 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
   // 當選中目標變更時載入排程資料
   useEffect(() => {
     if (selectedTarget) {
-    loadSchedules();
+      loadSchedules();
     }
   }, [selectedTarget, loadSchedules]);
 
-  // 如果沒有選中目標，顯示提示訊息（但仍然渲染對話框）
-  if (!selectedTarget) {
+  // 當 showTodaySchedules 為 true 時，載入並顯示今日排程
+  useEffect(() => {
+    if (showTodaySchedules) {
+      loadTodaySchedules();
+    }
+  }, [showTodaySchedules, loadTodaySchedules]);
+
+  // 當 initialDate 改變時，自動設置新增排程的日期
+  useEffect(() => {
+    if (initialDate) {
+      setNewSchedule(prev => ({
+        ...prev,
+        scheduledDate: initialDate,
+      }));
+      // 只在對話框未打開時自動打開（避免取消後重新打開）
+      if (!createDialogOpen) {
+        setCreateDialogOpen(true);
+      }
+    } else {
+      // 如果 initialDate 被清除，重置表單
+      setNewSchedule(prev => ({
+        ...prev,
+        scheduledDate: '',
+      }));
+    }
+  }, [initialDate]); // 移除 createDialogOpen 依賴，避免取消後重新打開
+
+  // 如果沒有選中目標，且不是顯示今日排程，不顯示任何內容
+  if (!selectedTarget && !showTodaySchedules) {
+    return null;
+  }
+
+  // 如果 showTodaySchedules 為 true 且沒有選中目標，只渲染對話框
+  if (!selectedTarget && showTodaySchedules) {
     return (
       <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="zh-tw">
-        <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 400 }}>
-            <CalendarIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              請選擇預生產目標
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              從左側列表選擇一個預生產目標，查看其工單排程
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<CalendarIcon />}
-              onClick={loadTodaySchedules}
-            >
-              查看今日排程
-            </Button>
-          </Paper>
-        </Box>
-
-        {/* 今日排程對話框 - 必須在所有返回路徑中都能渲染 */}
+        {/* 今日排程對話框 */}
         <Dialog
-          open={todaySchedulesDialogOpen}
-          onClose={() => setTodaySchedulesDialogOpen(false)}
+          open={showTodaySchedules}
+          onClose={() => {
+            if (onTodaySchedulesClose) {
+              onTodaySchedulesClose();
+            }
+          }}
           maxWidth="lg"
           fullWidth
           PaperProps={{
@@ -495,7 +563,11 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                 </Typography>
               </Box>
               <IconButton
-                onClick={() => setTodaySchedulesDialogOpen(false)}
+                onClick={() => {
+                  if (onTodaySchedulesClose) {
+                    onTodaySchedulesClose();
+                  }
+                }}
                 size="small"
               >
                 <CancelIcon />
@@ -520,7 +592,6 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {todaySchedules.map((schedule) => {
-                  // 直接使用 schedule 中的 ticket 關係，如果沒有則從 tickets 中查找
                   const ticket = schedule.ticket || tickets.find(t => t.id === schedule.ticketId);
                   return (
                     <Card
@@ -536,17 +607,10 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                       }}
                       onClick={() => {
                         if (ticket) {
-                          // 將 schedule.ticket 轉換為 Ticket 類型
-                          const ticketData: Ticket = {
-                            id: ticket.id,
-                            deviceId: ticket.deviceId,
-                            imageId: ticket.imageId,
-                            status: ticket.status as any,
-                            createdAt: ticket.createdAt,
-                            updatedAt: ticket.updatedAt,
-                          };
-                          onTicketSelect(ticketData);
-                          setTodaySchedulesDialogOpen(false);
+                          onTicketSelect(ticket as Ticket);
+                          if (onTodaySchedulesClose) {
+                            onTodaySchedulesClose();
+                          }
                         }
                       }}
                     >
@@ -593,6 +657,22 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Tooltip title="查看詳情">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (ticket) {
+                                    onTicketSelect(ticket as Ticket);
+                                    if (onTodaySchedulesClose) {
+                                      onTodaySchedulesClose();
+                                    }
+                                  }
+                                }}
+                              >
+                                <ViewIcon />
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title="編輯排程">
                               <IconButton
                                 size="small"
@@ -626,7 +706,14 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setTodaySchedulesDialogOpen(false)} variant="contained">
+            <Button 
+              onClick={() => {
+                if (onTodaySchedulesClose) {
+                  onTodaySchedulesClose();
+                }
+              }} 
+              variant="contained"
+            >
               關閉
             </Button>
           </DialogActions>
@@ -685,6 +772,11 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
         {/* 排程列表 */}
         {!loading && (
           <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+            {!selectedTarget && (
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                今日工單排程
+              </Typography>
+            )}
             {schedules.length === 0 ? (
               <Paper sx={{ p: 4, textAlign: 'center' }}>
                 <ScheduleIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
@@ -771,16 +863,8 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                                   size="small"
                                   onClick={() => {
                                     if (ticket) {
-                                      // 將 schedule.ticket 轉換為 Ticket 類型
-                                      const ticketData: Ticket = {
-                                        id: ticket.id,
-                                        deviceId: ticket.deviceId,
-                                        imageId: ticket.imageId,
-                                        status: ticket.status as any,
-                                        createdAt: ticket.createdAt,
-                                        updatedAt: ticket.updatedAt,
-                                      };
-                                      onTicketSelect(ticketData);
+                                      // 傳遞完整的 ticket 對象，包含所有字段（如解凍工單的詳細信息）
+                                      onTicketSelect(ticket as Ticket);
                                     }
                                   }}
                                 >
@@ -842,7 +926,15 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
           open={createDialogOpen}
           onClose={() => {
             setCreateDialogOpen(false);
+            setNewSchedule({
+              ticketId: '',
+              targetId: '',
+              scheduledDate: '',
+              scheduledTime: '',
+              priority: 'MEDIUM',
+            });
             setNewScheduleDeviceId('');
+            setFormErrors({});
           }}
           maxWidth="sm"
           fullWidth
@@ -922,7 +1014,20 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setCreateDialogOpen(false)}>
+            <Button 
+              onClick={() => {
+                setCreateDialogOpen(false);
+                setNewSchedule({
+                  ticketId: '',
+                  targetId: '',
+                  scheduledDate: '',
+                  scheduledTime: '',
+                  priority: 'MEDIUM',
+                });
+                setNewScheduleDeviceId('');
+                setFormErrors({});
+              }}
+            >
               取消
             </Button>
             <Button onClick={handleCreateSchedule} variant="contained">
@@ -1207,8 +1312,13 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
 
         {/* 今日排程對話框 */}
         <Dialog
-          open={todaySchedulesDialogOpen}
-          onClose={() => setTodaySchedulesDialogOpen(false)}
+          open={todaySchedulesDialogOpen || showTodaySchedules}
+          onClose={() => {
+            setTodaySchedulesDialogOpen(false);
+            if (onTodaySchedulesClose) {
+              onTodaySchedulesClose();
+            }
+          }}
           maxWidth="lg"
           fullWidth
           PaperProps={{
@@ -1228,7 +1338,12 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                 </Typography>
               </Box>
               <IconButton
-                onClick={() => setTodaySchedulesDialogOpen(false)}
+                onClick={() => {
+                  setTodaySchedulesDialogOpen(false);
+                  if (onTodaySchedulesClose) {
+                    onTodaySchedulesClose();
+                  }
+                }}
                 size="small"
               >
                 <CancelIcon />
@@ -1269,16 +1384,8 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
                       }}
                       onClick={() => {
                         if (ticket) {
-                          // 將 schedule.ticket 轉換為 Ticket 類型
-                          const ticketData: Ticket = {
-                            id: ticket.id,
-                            deviceId: ticket.deviceId,
-                            imageId: ticket.imageId,
-                            status: ticket.status as any,
-                            createdAt: ticket.createdAt,
-                            updatedAt: ticket.updatedAt,
-                          };
-                          onTicketSelect(ticketData);
+                          // 傳遞完整的 ticket 對象，包含所有字段（如解凍工單的詳細信息）
+                          onTicketSelect(ticket as Ticket);
                           setTodaySchedulesDialogOpen(false);
                         }
                       }}
@@ -1359,7 +1466,15 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setTodaySchedulesDialogOpen(false)} variant="contained">
+            <Button 
+              onClick={() => {
+                setTodaySchedulesDialogOpen(false);
+                if (onTodaySchedulesClose) {
+                  onTodaySchedulesClose();
+                }
+              }} 
+              variant="contained"
+            >
               關閉
             </Button>
           </DialogActions>

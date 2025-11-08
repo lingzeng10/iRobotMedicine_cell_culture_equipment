@@ -26,9 +26,10 @@ import {
   createTheme,
   CssBaseline,
 } from '@mui/material';
-import { ProductionTarget } from './types/target';
+import { ProductionTarget, ProductionScheduleRow, TicketScheduleWithRelations } from './types/target';
 import { Ticket } from './types/ticket';
 import { TargetService } from './services/targetApi';
+import dayjs from 'dayjs';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -40,116 +41,129 @@ import {
 } from '@mui/icons-material';
 
 // 匯入自定義元件
-import TargetList from './components/TargetList';
-import TicketSchedule from './components/TicketSchedule';
 import CreateTargetForm from './components/CreateTargetForm';
 import TicketDetailMUI from './components/TicketDetailMUI';
 import VersionDialog from './components/VersionDialog';
+import AIAgentPanel from './components/AIAgentPanel';
+import ProductionScheduleTable from './components/ProductionScheduleTable';
+import TicketSchedule from './components/TicketSchedule';
 
-// 建立智慧醫療藍白主題
+// 建立深色高科技主題
 const medicalTheme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
     primary: {
-      main: '#1976d2', // 醫療藍
-      light: '#42a5f5',
-      dark: '#1565c0',
-      contrastText: '#ffffff',
+      main: '#00d4ff', // 霓虹青色
+      light: '#33ddff',
+      dark: '#00a8cc',
+      contrastText: '#000000',
     },
     secondary: {
-      main: '#00acc1', // 青藍色
-      light: '#26c6da',
-      dark: '#0097a7',
+      main: '#7c3aed', // 霓虹紫色
+      light: '#9965f4',
+      dark: '#5b21b6',
       contrastText: '#ffffff',
     },
     background: {
-      default: '#f8fafc', // 淺灰白
-      paper: '#ffffff',
+      default: '#0a0e27', // 深藍黑色
+      paper: '#1a1f3a', // 深藍灰
     },
     text: {
-      primary: '#1a202c', // 深灰
-      secondary: '#4a5568', // 中灰
+      primary: '#e0e7ff', // 淺藍白
+      secondary: '#a5b4fc', // 中藍灰
     },
     success: {
-      main: '#10b981', // 醫療綠
-      light: '#34d399',
-      dark: '#059669',
+      main: '#00ff88', // 霓虹綠
+      light: '#33ffa3',
+      dark: '#00cc6a',
     },
     warning: {
-      main: '#f59e0b', // 醫療橙
-      light: '#fbbf24',
-      dark: '#d97706',
+      main: '#ffb800', // 霓虹黃
+      light: '#ffc633',
+      dark: '#cc9300',
     },
     error: {
-      main: '#ef4444', // 醫療紅
-      light: '#f87171',
-      dark: '#dc2626',
+      main: '#ff3366', // 霓虹紅
+      light: '#ff5c85',
+      dark: '#cc294d',
     },
     info: {
-      main: '#3b82f6', // 資訊藍
-      light: '#60a5fa',
-      dark: '#2563eb',
+      main: '#00d4ff', // 霓虹青色（與 primary 相同）
+      light: '#33ddff',
+      dark: '#00a8cc',
     },
+    divider: 'rgba(0, 212, 255, 0.12)',
   },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     h1: {
       fontSize: '2.5rem',
-      fontWeight: 600,
-      color: '#1a202c',
+      fontWeight: 700,
+      color: '#00d4ff',
+      textShadow: '0 0 10px rgba(0, 212, 255, 0.5)',
     },
     h2: {
       fontSize: '2rem',
-      fontWeight: 600,
-      color: '#1a202c',
+      fontWeight: 700,
+      color: '#00d4ff',
+      textShadow: '0 0 8px rgba(0, 212, 255, 0.4)',
     },
     h3: {
       fontSize: '1.5rem',
       fontWeight: 600,
-      color: '#1a202c',
+      color: '#e0e7ff',
     },
     h4: {
       fontSize: '1.25rem',
       fontWeight: 600,
-      color: '#1a202c',
+      color: '#e0e7ff',
     },
     h5: {
       fontSize: '1.125rem',
       fontWeight: 600,
-      color: '#1a202c',
+      color: '#e0e7ff',
     },
     h6: {
       fontSize: '1rem',
       fontWeight: 600,
-      color: '#1a202c',
+      color: '#e0e7ff',
     },
     body1: {
       fontSize: '1rem',
-      color: '#4a5568',
+      color: '#e0e7ff',
     },
     body2: {
       fontSize: '0.875rem',
-      color: '#4a5568',
+      color: '#a5b4fc',
     },
   },
   shape: {
-    borderRadius: 8,
+    borderRadius: 12,
   },
   components: {
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#1976d2',
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.15)',
-          color: '#ffffff', // 確保AppBar中的文字為白色
+          backgroundColor: '#0f1629',
+          backgroundImage: 'linear-gradient(135deg, #0f1629 0%, #1a1f3a 100%)',
+          boxShadow: '0 4px 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1)',
+          borderBottom: '1px solid rgba(0, 212, 255, 0.2)',
+          color: '#ffffff',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
-          border: '1px solid #e2e8f0',
+          backgroundColor: '#1a1f3a',
+          backgroundImage: 'linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%)',
+          boxShadow: '0 4px 20px rgba(0, 212, 255, 0.15), 0 0 40px rgba(0, 212, 255, 0.05)',
+          border: '1px solid rgba(0, 212, 255, 0.2)',
+          borderRadius: 12,
+          '&:hover': {
+            boxShadow: '0 6px 30px rgba(0, 212, 255, 0.25), 0 0 60px rgba(0, 212, 255, 0.1)',
+            borderColor: 'rgba(0, 212, 255, 0.4)',
+          },
         },
       },
     },
@@ -157,18 +171,100 @@ const medicalTheme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          fontWeight: 500,
+          fontWeight: 600,
           borderRadius: 8,
+          transition: 'all 0.3s ease',
         },
         contained: {
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          background: 'linear-gradient(135deg, #00d4ff 0%, #00a8cc 100%)',
+          boxShadow: '0 4px 15px rgba(0, 212, 255, 0.4), 0 0 30px rgba(0, 212, 255, 0.2)',
+          color: '#000000',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #33ddff 0%, #00d4ff 100%)',
+            boxShadow: '0 6px 20px rgba(0, 212, 255, 0.6), 0 0 40px rgba(0, 212, 255, 0.3)',
+            transform: 'translateY(-2px)',
+          },
+        },
+        outlined: {
+          borderColor: 'rgba(0, 212, 255, 0.5)',
+          color: '#00d4ff',
+          '&:hover': {
+            borderColor: '#00d4ff',
+            backgroundColor: 'rgba(0, 212, 255, 0.1)',
+            boxShadow: '0 0 20px rgba(0, 212, 255, 0.3)',
+          },
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: '#ffffff',
+          backgroundColor: '#1a1f3a',
+          backgroundImage: 'linear-gradient(135deg, #1a1f3a 0%, #0f1629 100%)',
+          border: '1px solid rgba(0, 212, 255, 0.15)',
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#0f1629',
+          backgroundImage: 'linear-gradient(180deg, #0f1629 0%, #1a1f3a 100%)',
+          borderRight: '1px solid rgba(0, 212, 255, 0.2)',
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderColor: 'rgba(0, 212, 255, 0.15)',
+        },
+        head: {
+          backgroundColor: '#0f1629',
+          color: '#00d4ff',
+          fontWeight: 700,
+          textShadow: '0 0 8px rgba(0, 212, 255, 0.3)',
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            backgroundColor: 'rgba(0, 212, 255, 0.05)',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            backgroundColor: 'rgba(26, 31, 58, 0.5)',
+            '& fieldset': {
+              borderColor: 'rgba(0, 212, 255, 0.3)',
+            },
+            '&:hover fieldset': {
+              borderColor: 'rgba(0, 212, 255, 0.5)',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#00d4ff',
+              boxShadow: '0 0 10px rgba(0, 212, 255, 0.3)',
+            },
+          },
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(0, 212, 255, 0.15)',
+          color: '#00d4ff',
+          border: '1px solid rgba(0, 212, 255, 0.3)',
+          '&:hover': {
+            backgroundColor: 'rgba(0, 212, 255, 0.25)',
+            boxShadow: '0 0 15px rgba(0, 212, 255, 0.4)',
+          },
         },
       },
     },
@@ -179,7 +275,6 @@ const medicalTheme = createTheme({
 const AppMUI: React.FC = () => {
   // 狀態管理
   const [targets, setTargets] = useState<ProductionTarget[]>([]);
-  const [selectedTarget, setSelectedTarget] = useState<ProductionTarget | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [createTargetDialogOpen, setCreateTargetDialogOpen] = useState(false);
   const [ticketDetailDialogOpen, setTicketDetailDialogOpen] = useState(false);
@@ -187,6 +282,12 @@ const AppMUI: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scheduleTableData, setScheduleTableData] = useState<ProductionScheduleRow[]>([]);
+  const [loadingTableData, setLoadingTableData] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<ProductionTarget | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [todaySchedulesDialogOpen, setTodaySchedulesDialogOpen] = useState(false);
 
   // 載入目標列表
   const loadTargets = useCallback(async () => {
@@ -214,14 +315,148 @@ const AppMUI: React.FC = () => {
     loadTargets();
   }, [loadTargets]);
 
-  /**
-   * 處理目標選擇
-   * @param target 選中的預生產目標
-   */
-  const handleTargetSelect = (target: ProductionTarget) => {
-    setSelectedTarget(target);
-    setDrawerOpen(false); // 關閉側邊欄
-  };
+  // 載入表格資料
+  const loadScheduleTableData = useCallback(async () => {
+    setLoadingTableData(true);
+    try {
+      // 載入所有目標的排程資料
+      const allSchedules: TicketScheduleWithRelations[] = [];
+      
+      for (const target of targets) {
+        try {
+          const response = await TargetService.getTargetSchedules(target.id);
+          if (response.success && response.data) {
+            allSchedules.push(...response.data);
+          }
+        } catch (error) {
+          console.error(`載入目標 ${target.id} 的排程失敗:`, error);
+        }
+      }
+
+      // 轉換為表格資料格式
+      const tableDataMap = new Map<string, ProductionScheduleRow>();
+
+      // 按目標分組
+      targets.forEach(target => {
+        const targetSchedules = allSchedules.filter(s => s.targetId === target.id);
+        
+        // 計算實際產量（已完成工單數量）
+        const completedCount = targetSchedules.filter(s => s.status === 'COMPLETED').length;
+        
+        // 找到起始培養日期（最早的排程日期）
+        const startDate = targetSchedules.length > 0
+          ? targetSchedules.reduce((earliest, s) => 
+              dayjs(s.scheduledDate).isBefore(dayjs(earliest)) ? s.scheduledDate : earliest,
+              targetSchedules[0].scheduledDate
+            )
+          : target.expectedCompletionDate;
+
+        // 計算代數（根據排程數量估算，或從目標名稱提取）
+        const generation = targetSchedules.length > 0 ? Math.floor(targetSchedules.length / 3) + 1 : 1;
+
+        // 計算盒數（根據已完成工單估算）
+        const boxCount = Math.max(1, Math.floor(completedCount / 2));
+
+        // 建立日期映射（按日期分組排程）
+        const datesMap: { [date: string]: { schedules?: TicketScheduleWithRelations[]; scheduleId?: string; status?: string; notes?: string; recoveryVolume?: string; actualRecoveryVolume?: string; workOrderType?: string } } = {};
+        targetSchedules.forEach(schedule => {
+          const date = schedule.scheduledDate;
+          if (!datesMap[date]) {
+            datesMap[date] = { schedules: [] };
+          }
+          if (!datesMap[date].schedules) {
+            datesMap[date].schedules = [];
+          }
+          datesMap[date].schedules!.push(schedule);
+          
+          // 從工單中提取回收量資訊
+          const ticket = schedule.ticket;
+          if (ticket) {
+            // 回收量：從 collectDiscardBoxCount 或 subcultureRecycledMediumType 等欄位提取
+            let recoveryVolume = '';
+            if (ticket.collectDiscardBoxCount) {
+              recoveryVolume = `${ticket.collectDiscardBoxCount}`;
+            } else if (ticket.subcultureRecycledMediumType && ticket.subcultureRecycledMediumType !== '不回收') {
+              // 如果有回收培養液，可以從其他欄位推斷
+              recoveryVolume = '';
+            }
+            
+            // 實際回收量：暫時使用回收量，未來可以從其他欄位獲取
+            const actualRecoveryVolume = recoveryVolume;
+            
+            // 工單類型
+            const workOrderType = ticket.deviceId || '';
+            
+            // 設置日期欄位的資料
+            if (!datesMap[date].recoveryVolume && recoveryVolume) {
+              datesMap[date].recoveryVolume = recoveryVolume;
+            }
+            if (!datesMap[date].actualRecoveryVolume && actualRecoveryVolume) {
+              datesMap[date].actualRecoveryVolume = actualRecoveryVolume;
+            }
+            if (!datesMap[date].workOrderType && workOrderType) {
+              datesMap[date].workOrderType = workOrderType;
+            }
+          }
+          
+          // 保留向後兼容的字段
+          const statusText = schedule.status === 'COMPLETED' ? '已完成' :
+                           schedule.status === 'IN_PROGRESS' ? '進行中' : '規劃中';
+          if (!datesMap[date].status) {
+            datesMap[date].status = statusText;
+          }
+          if (!datesMap[date].notes) {
+            datesMap[date].notes = schedule.ticket?.deviceId || '';
+          }
+          if (!datesMap[date].scheduleId) {
+            datesMap[date].scheduleId = schedule.id;
+          }
+        });
+
+        // 使用目標的生產目標欄位，如果沒有則從名稱提取（如 "DS1-3" -> "3L"）
+        let productionTarget = target.productionTarget || '';
+        if (!productionTarget) {
+          const productionTargetMatch = target.name.match(/(\d+)L/i);
+          productionTarget = productionTargetMatch ? `${productionTargetMatch[1]}L` : '';
+        }
+
+        // 使用目標的起始培養日期，如果沒有則使用最早的排程日期
+        const startCultureDate = target.startCultureDate || startDate;
+
+        // 使用目標的代數，如果沒有則計算
+        const targetGeneration = target.generation || generation;
+
+        // 使用目標的盒數，如果沒有則計算
+        const targetBoxCount = target.boxCount || boxCount;
+
+        tableDataMap.set(target.id, {
+          id: target.id,
+          cellName: target.name, // 細胞名稱（原生產目標名稱）
+          productionTarget: productionTarget, // 生產目標（如 "3L"）
+          actualProduction: `${completedCount}L`, // 實際即時產量（如 "1L"）
+          startCultureDate: startCultureDate,
+          generation: targetGeneration,
+          boxCount: targetBoxCount,
+          dates: datesMap,
+        });
+      });
+
+      setScheduleTableData(Array.from(tableDataMap.values()));
+    } catch (error) {
+      console.error('載入表格資料錯誤:', error);
+      setError('載入表格資料失敗');
+    } finally {
+      setLoadingTableData(false);
+    }
+  }, [targets]);
+
+  // 當目標列表更新時，載入表格資料
+  useEffect(() => {
+    if (targets.length > 0) {
+      loadScheduleTableData();
+    }
+  }, [targets, loadScheduleTableData]);
+
 
   /**
    * 處理工單選擇
@@ -239,16 +474,14 @@ const AppMUI: React.FC = () => {
   const handleCreateTargetSuccess = (target: ProductionTarget) => {
     setTargets(prev => [...prev, target]); // 將新目標添加到列表中
     setCreateTargetDialogOpen(false);
-    setSelectedTarget(target); // 自動選中新建立的目標
   };
 
   /**
-   * 處理目標新增（從 TargetList 組件）
+   * 處理目標新增
    * @param newTarget 新建立的目標
    */
   const handleTargetCreate = (newTarget: ProductionTarget) => {
     setTargets(prev => [...prev, newTarget]); // 將新目標添加到列表中
-    setSelectedTarget(newTarget); // 自動選中新建立的目標
   };
 
   /**
@@ -261,11 +494,6 @@ const AppMUI: React.FC = () => {
     setTargets((prev: ProductionTarget[]) => prev.map((target: ProductionTarget) => 
       target.id === targetId ? updatedTarget : target
     ));
-    
-    // 如果當前選中的目標被更新，更新選中狀態
-    if (selectedTarget && selectedTarget.id === targetId) {
-      setSelectedTarget(updatedTarget);
-    }
   };
 
   /**
@@ -274,11 +502,6 @@ const AppMUI: React.FC = () => {
    */
   const handleTargetDelete = (targetId: string) => {
     setTargets(prev => prev.filter(target => target.id !== targetId));
-    
-    // 如果當前選中的目標被刪除，清除選中狀態
-    if (selectedTarget && selectedTarget.id === targetId) {
-      setSelectedTarget(null);
-    }
   };
 
   /**
@@ -304,6 +527,25 @@ const AppMUI: React.FC = () => {
    */
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
+  };
+
+  /**
+   * 處理日期點擊（新增排程）
+   */
+  const handleDateClick = (targetId: string, date: string) => {
+    const target = targets.find(t => t.id === targetId);
+    if (target) {
+      setSelectedTarget(target);
+      setSelectedDate(date);
+      setScheduleDialogOpen(true);
+    }
+  };
+
+  /**
+   * 處理排程更新（重新載入表格資料）
+   */
+  const handleScheduleUpdate = () => {
+    loadScheduleTableData();
   };
 
   return (
@@ -408,42 +650,77 @@ const AppMUI: React.FC = () => {
         >
           <Toolbar /> {/* 為 AppBar 留出空間 */}
           
-          <Box sx={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)' }}>
-            {/* 左側：預生產目標列表 */}
-            <Box sx={{ width: { xs: '100%', md: '33.33%' }, height: '100%' }}>
-              <Paper 
-                sx={{ 
+          <Box sx={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', width: '100%' }}>
+            {/* 表格視圖 - 佔滿整個區域 */}
+            <Box sx={{ 
+              width: '100%', 
                   height: '100%', 
-                  borderRadius: 0,
-                  borderRight: 1,
-                  borderColor: 'divider',
-                }}
-              >
-                <TargetList
-                  targets={targets}
-                  onTargetSelect={handleTargetSelect}
-                  selectedTargetId={selectedTarget?.id}
-                  onTargetUpdate={handleTargetUpdate}
-                  onTargetDelete={handleTargetDelete}
-                  onTargetCreate={handleTargetCreate}
-                />
-              </Paper>
-            </Box>
-
-            {/* 右側：工單排程 */}
-            <Box sx={{ width: { xs: '100%', md: '66.67%' }, height: '100%' }}>
-              <Paper 
-                sx={{ 
-                  height: '100%', 
-                  borderRadius: 0,
-                }}
-              >
-                <TicketSchedule
-                  selectedTarget={selectedTarget}
-                  onTicketSelect={handleTicketSelect}
-                  onTargetUpdate={handleTargetUpdate}
-                />
-              </Paper>
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              {loadingTableData ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+                    <Typography variant="h6">生產排程表</Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => setCreateTargetDialogOpen(true)}
+                        color="primary"
+                      >
+                        新增生產目標
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<ScheduleIcon />}
+                        onClick={() => setTodaySchedulesDialogOpen(true)}
+                      >
+                        今日工單
+                      </Button>
+                    </Box>
+                  </Box>
+                  <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                    <ProductionScheduleTable 
+                      data={scheduleTableData} 
+                      onDateClick={handleDateClick}
+                      onScheduleClick={(schedule) => {
+                        if (schedule.ticket) {
+                          handleTicketSelect(schedule.ticket as Ticket);
+                        }
+                      }}
+                      onScheduleEdit={(schedule) => {
+                        const target = targets.find(t => t.id === schedule.targetId);
+                        if (target) {
+                          setSelectedTarget(target);
+                          setSelectedDate(schedule.scheduledDate);
+                          setScheduleDialogOpen(true);
+                          // 這裡需要觸發編輯排程，但需要先載入 TicketSchedule 組件
+                          // 暫時先打開對話框，用戶可以在對話框中編輯
+                        }
+                      }}
+                      onScheduleDelete={async (scheduleId) => {
+                        try {
+                          const response = await TargetService.deleteSchedule(scheduleId);
+                          if (response.success) {
+                            handleScheduleUpdate();
+                          } else {
+                            setError(response.message || '刪除工單排程失敗');
+                          }
+                        } catch (error: any) {
+                          console.error('刪除工單排程錯誤:', error);
+                          setError('刪除工單排程失敗，請稍後再試');
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+              )}
             </Box>
           </Box>
         </Box>
@@ -458,9 +735,12 @@ const AppMUI: React.FC = () => {
         {/* 工單詳情對話框 */}
         <TicketDetailMUI
           open={ticketDetailDialogOpen}
-          ticketId={selectedTicket?.id} // 優先使用 ticketId，確保從 API 重新載入完整資料
+          ticketId={selectedTicket?.id} // 優先使用 ticketId，確保從 API 重新載入完整資料（包含所有工單類型的詳細信息）
           ticket={selectedTicket || undefined} // 保留 ticket prop 作為備用
-          onClose={() => setTicketDetailDialogOpen(false)}
+          onClose={() => {
+            setTicketDetailDialogOpen(false);
+            setSelectedTicket(null);
+          }}
           onUpdate={handleTicketUpdate}
         />
 
@@ -479,7 +759,7 @@ const AppMUI: React.FC = () => {
             onClose={() => setError(null)}
           >
             <Typography variant="body2" fontWeight="bold">
-              {error}
+            {error}
             </Typography>
             {error.includes('無法連接到後端服務') && (
               <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
@@ -515,6 +795,89 @@ const AppMUI: React.FC = () => {
         <VersionDialog
           open={versionDialogOpen}
           onClose={() => setVersionDialogOpen(false)}
+        />
+
+        {/* AI Agent 面板 */}
+        <AIAgentPanel
+          onTicketClick={(ticketId) => {
+            // 當用戶點擊工單連結時，打開工單詳情
+            setSelectedTicket({ id: ticketId } as Ticket);
+            setTicketDetailDialogOpen(true);
+          }}
+        />
+
+        {/* 排程管理對話框 */}
+        {selectedTarget && scheduleDialogOpen && (
+          <Box
+            sx={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 1300,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setScheduleDialogOpen(false);
+              setSelectedTarget(null);
+              setSelectedDate('');
+            }}
+          >
+            <Box
+              sx={{
+                bgcolor: 'background.paper',
+                borderRadius: 2,
+                p: 3,
+                maxWidth: '90%',
+                maxHeight: '90%',
+                overflow: 'auto',
+                position: 'relative',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                <IconButton
+                  onClick={() => {
+                    setScheduleDialogOpen(false);
+                    setSelectedTarget(null);
+                    setSelectedDate('');
+                  }}
+                  size="small"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+              <TicketSchedule
+                selectedTarget={selectedTarget}
+                onTicketSelect={handleTicketSelect}
+                onTargetUpdate={handleTargetUpdate}
+                onTargetDelete={handleTargetDelete}
+                onScheduleUpdate={() => {
+                  handleScheduleUpdate();
+                  // 排程更新後關閉對話框
+                  setScheduleDialogOpen(false);
+                  setSelectedTarget(null);
+                  setSelectedDate('');
+                }}
+                initialDate={selectedDate}
+              />
+            </Box>
+          </Box>
+        )}
+
+        {/* 今日工單對話框 - 使用 TicketSchedule 組件內部的今日排程對話框 */}
+        <TicketSchedule
+          selectedTarget={null}
+          onTicketSelect={handleTicketSelect}
+          onTargetUpdate={handleTargetUpdate}
+          onTargetDelete={handleTargetDelete}
+          showTodaySchedules={todaySchedulesDialogOpen}
+          onTodaySchedulesClose={() => setTodaySchedulesDialogOpen(false)}
         />
       </Box>
     </ThemeProvider>

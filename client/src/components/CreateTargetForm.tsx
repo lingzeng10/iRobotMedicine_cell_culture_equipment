@@ -39,6 +39,10 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
     name: '',
     materialType: '',
     responsiblePerson: '',
+    productionTarget: '',
+    startCultureDate: '',
+    generation: undefined,
+    boxCount: undefined,
     expectedCompletionDate: '',
   });
 
@@ -56,7 +60,7 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
    * @param field 欄位名稱
    * @param value 欄位值
    */
-  const handleFieldChange = (field: keyof CreateTargetRequest, value: string) => {
+  const handleFieldChange = (field: keyof CreateTargetRequest, value: string | number | undefined) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -147,6 +151,10 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
           name: '',
           materialType: '',
           responsiblePerson: '',
+          productionTarget: '',
+          startCultureDate: '',
+          generation: undefined,
+          boxCount: undefined,
           expectedCompletionDate: '',
         });
         setErrors({});
@@ -175,6 +183,10 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
         name: '',
         materialType: '',
         responsiblePerson: '',
+        productionTarget: '',
+        startCultureDate: '',
+        generation: undefined,
+        boxCount: undefined,
         expectedCompletionDate: '',
       });
       setErrors({});
@@ -266,6 +278,73 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
                 <MenuItem value="OP002">OP002</MenuItem>
                 <MenuItem value="OP003">OP003</MenuItem>
               </TextField>
+
+              {/* 生產目標欄位 */}
+              <TextField
+                fullWidth
+                label="生產目標"
+                value={formData.productionTarget || ''}
+                onChange={(e) => handleFieldChange('productionTarget', e.target.value)}
+                error={!!errors.productionTarget}
+                helperText={errors.productionTarget || '可選，例如：3L'}
+                disabled={loading}
+                placeholder="例如：3L"
+              />
+
+              {/* 起始培養日期欄位 */}
+              <DatePicker
+                label="起始培養日期"
+                value={formData.startCultureDate ? dayjs(formData.startCultureDate) : null}
+                onChange={(date: Dayjs | null) => {
+                  if (date) {
+                    handleFieldChange('startCultureDate', date.format('YYYY-MM-DD'));
+                  } else {
+                    handleFieldChange('startCultureDate', '');
+                  }
+                }}
+                disabled={loading}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    error: !!errors.startCultureDate,
+                    helperText: errors.startCultureDate || '可選，選擇起始培養日期',
+                  },
+                }}
+              />
+
+              {/* 代數欄位 */}
+              <TextField
+                fullWidth
+                type="number"
+                label="代數"
+                value={formData.generation || ''}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                  handleFieldChange('generation', value);
+                }}
+                error={!!errors.generation}
+                helperText={errors.generation || '可選，輸入代數'}
+                disabled={loading}
+                inputProps={{ min: 1 }}
+                placeholder="例如：1"
+              />
+
+              {/* 盒數欄位 */}
+              <TextField
+                fullWidth
+                type="number"
+                label="盒數"
+                value={formData.boxCount || ''}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                  handleFieldChange('boxCount', value);
+                }}
+                error={!!errors.boxCount}
+                helperText={errors.boxCount || '可選，輸入盒數'}
+                disabled={loading}
+                inputProps={{ min: 1 }}
+                placeholder="例如：1"
+              />
 
               {/* 預計完成時間欄位 */}
               <DatePicker

@@ -117,6 +117,10 @@ router.get('/:id', [
  * - name: 目標名稱 (必填)
  * - materialType: 收集原料種類 (可選)
  * - responsiblePerson: 負責人員 (可選：OP001, OP002, OP003)
+ * - productionTarget: 生產目標 (可選，如 "3L")
+ * - startCultureDate: 起始培養日期 (可選)
+ * - generation: 代數 (可選)
+ * - boxCount: 盒數 (可選)
  * - expectedCompletionDate: 預計完成時間 (必填)
  */
 router.post('/', [
@@ -134,6 +138,22 @@ router.post('/', [
     .optional()
     .isIn(['OP001', 'OP002', 'OP003'])
     .withMessage('負責人員必須為 OP001, OP002, 或 OP003'),
+  body('productionTarget')
+    .optional()
+    .isString()
+    .withMessage('生產目標必須為字串'),
+  body('startCultureDate')
+    .optional()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('起始培養日期格式必須為 YYYY-MM-DD'),
+  body('generation')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('代數必須為正整數'),
+  body('boxCount')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('盒數必須為正整數'),
   body('expectedCompletionDate')
     .isString()
     .notEmpty()
@@ -152,7 +172,7 @@ router.post('/', [
       });
     }
 
-    const { name, materialType, responsiblePerson, expectedCompletionDate } = req.body;
+    const { name, materialType, responsiblePerson, productionTarget, startCultureDate, generation, boxCount, expectedCompletionDate } = req.body;
 
     // 建立新目標並自動創建排程（使用事務確保一致性）
     const result = await prisma.$transaction(async (tx) => {
@@ -162,6 +182,10 @@ router.post('/', [
           name,
           materialType: materialType || null,
           responsiblePerson: responsiblePerson || null,
+          productionTarget: productionTarget || null,
+          startCultureDate: startCultureDate || null,
+          generation: generation || null,
+          boxCount: boxCount || null,
           expectedCompletionDate,
           status: 'PLANNING', // 預設狀態為規劃中
         },
@@ -271,6 +295,10 @@ router.post('/', [
  * - name: 目標名稱 (可選)
  * - materialType: 收集原料種類 (可選)
  * - responsiblePerson: 負責人員 (可選：OP001, OP002, OP003)
+ * - productionTarget: 生產目標 (可選，如 "3L")
+ * - startCultureDate: 起始培養日期 (可選)
+ * - generation: 代數 (可選)
+ * - boxCount: 盒數 (可選)
  * - expectedCompletionDate: 預計完成時間 (可選)
  * - status: 目標狀態 (可選)
  */
@@ -289,6 +317,22 @@ router.put('/:id', [
     .optional()
     .isIn(['OP001', 'OP002', 'OP003'])
     .withMessage('負責人員必須為 OP001, OP002, 或 OP003'),
+  body('productionTarget')
+    .optional()
+    .isString()
+    .withMessage('生產目標必須為字串'),
+  body('startCultureDate')
+    .optional()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('起始培養日期格式必須為 YYYY-MM-DD'),
+  body('generation')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('代數必須為正整數'),
+  body('boxCount')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('盒數必須為正整數'),
   body('expectedCompletionDate')
     .optional()
     .isString()
@@ -317,6 +361,10 @@ router.put('/:id', [
     if (req.body.name !== undefined) updateData.name = req.body.name;
     if (req.body.materialType !== undefined) updateData.materialType = req.body.materialType || null;
     if (req.body.responsiblePerson !== undefined) updateData.responsiblePerson = req.body.responsiblePerson || null;
+    if (req.body.productionTarget !== undefined) updateData.productionTarget = req.body.productionTarget || null;
+    if (req.body.startCultureDate !== undefined) updateData.startCultureDate = req.body.startCultureDate || null;
+    if (req.body.generation !== undefined) updateData.generation = req.body.generation || null;
+    if (req.body.boxCount !== undefined) updateData.boxCount = req.body.boxCount || null;
     if (req.body.expectedCompletionDate !== undefined) updateData.expectedCompletionDate = req.body.expectedCompletionDate;
     if (req.body.status !== undefined) updateData.status = req.body.status;
 
