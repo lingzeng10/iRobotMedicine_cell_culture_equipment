@@ -39,6 +39,7 @@ interface ProductionScheduleTableProps {
   onScheduleClick?: (schedule: TicketScheduleWithRelations) => void; // 點擊工單排程時的回調（查看詳情）
   onScheduleEdit?: (schedule: TicketScheduleWithRelations) => void; // 編輯工單排程時的回調
   onScheduleDelete?: (scheduleId: string) => void; // 刪除工單排程時的回調
+  onTargetEdit?: (targetId: string) => void; // 編輯生產目標時的回調
 }
 
 type SortField = 'cellName' | 'productionTarget' | 'actualProduction' | 'startCultureDate' | 'generation' | 'boxCount';
@@ -51,6 +52,7 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
   onScheduleClick,
   onScheduleEdit,
   onScheduleDelete,
+  onTargetEdit,
 }) => {
   const [sortField, setSortField] = useState<SortField>('startCultureDate');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -112,14 +114,14 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
 
   const dateCols = generateDateColumns();
 
-  // 固定欄位寬度
+  // 固定欄位寬度（縮小以符合 11px 字體）
   const fixedColumnWidths = {
-    cellName: 120,
-    productionTarget: 100,
-    actualProduction: 100,
-    startCultureDate: 140,
-    generation: 80,
-    boxCount: 80,
+    cellName: 90,
+    productionTarget: 75,
+    actualProduction: 90,
+    startCultureDate: 100,
+    generation: 60,
+    boxCount: 60,
   };
 
   // 計算累積左側位置
@@ -171,7 +173,7 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
             },
           }}
         >
-          <Table stickyHeader sx={{ minWidth: 800, width: '100%' }}>
+          <Table stickyHeader sx={{ minWidth: 600, width: '100%', border: '1px solid', borderColor: 'divider', fontSize: '11px' }}>
             <TableHead>
               <TableRow>
                 {/* 固定欄位 */}
@@ -181,17 +183,23 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                     left: getStickyLeft('cellName'),
                     zIndex: 3,
                     backgroundColor: 'background.paper',
+                    border: '1px solid',
                     borderRight: '2px solid',
                     borderColor: 'divider',
                     minWidth: fixedColumnWidths.cellName,
+                    width: fixedColumnWidths.cellName,
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
+                    fontSize: '11px',
+                    px: 0.5,
+                    py: 0.75,
                   }}
                 >
                   <TableSortLabel
                     active={sortField === 'cellName'}
                     direction={sortField === 'cellName' ? sortOrder : 'asc'}
                     onClick={() => handleSort('cellName')}
+                    sx={{ fontSize: '11px' }}
                   >
                     細胞
                   </TableSortLabel>
@@ -203,17 +211,23 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                     left: getStickyLeft('productionTarget'),
                     zIndex: 3,
                     backgroundColor: 'background.paper',
+                    border: '1px solid',
                     borderRight: '2px solid',
                     borderColor: 'divider',
                     minWidth: fixedColumnWidths.productionTarget,
+                    width: fixedColumnWidths.productionTarget,
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
+                    fontSize: '11px',
+                    px: 0.5,
+                    py: 0.75,
                   }}
                 >
                   <TableSortLabel
                     active={sortField === 'productionTarget'}
                     direction={sortField === 'productionTarget' ? sortOrder : 'asc'}
                     onClick={() => handleSort('productionTarget')}
+                    sx={{ fontSize: '11px' }}
                   >
                     生產目標
                   </TableSortLabel>
@@ -225,17 +239,23 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                     left: getStickyLeft('actualProduction'),
                     zIndex: 3,
                     backgroundColor: 'background.paper',
+                    border: '1px solid',
                     borderRight: '2px solid',
                     borderColor: 'divider',
                     minWidth: fixedColumnWidths.actualProduction,
+                    width: fixedColumnWidths.actualProduction,
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
+                    fontSize: '11px',
+                    px: 0.5,
+                    py: 0.75,
                   }}
                 >
                   <TableSortLabel
                     active={sortField === 'actualProduction'}
                     direction={sortField === 'actualProduction' ? sortOrder : 'asc'}
                     onClick={() => handleSort('actualProduction')}
+                    sx={{ fontSize: '11px' }}
                   >
                     實際即時產量
                   </TableSortLabel>
@@ -247,17 +267,45 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                     left: getStickyLeft('startCultureDate'),
                     zIndex: 3,
                     backgroundColor: 'background.paper',
+                    border: '1px solid',
                     borderRight: '2px solid',
                     borderColor: 'divider',
                     minWidth: fixedColumnWidths.startCultureDate,
+                    width: fixedColumnWidths.startCultureDate,
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
+                    fontSize: '11px',
+                    px: 0.5,
+                    py: 0.75,
                   }}
                 >
                   <TableSortLabel
                     active={sortField === 'startCultureDate'}
                     direction={sortField === 'startCultureDate' ? sortOrder : 'asc'}
                     onClick={() => handleSort('startCultureDate')}
+                    sx={{
+                      fontSize: '11px',
+                      '& .MuiTableSortLabel-icon': {
+                        opacity: 0,
+                        visibility: 'hidden',
+                        display: 'none',
+                      },
+                      '&:hover .MuiTableSortLabel-icon': {
+                        opacity: 1,
+                        visibility: 'visible',
+                        display: 'inline-block',
+                      },
+                      '&.Mui-active .MuiTableSortLabel-icon': {
+                        opacity: 0,
+                        visibility: 'hidden',
+                        display: 'none',
+                      },
+                      '&.Mui-active:hover .MuiTableSortLabel-icon': {
+                        opacity: 1,
+                        visibility: 'visible',
+                        display: 'inline-block',
+                      },
+                    }}
                   >
                     起始培養日期
                   </TableSortLabel>
@@ -269,17 +317,45 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                     left: getStickyLeft('generation'),
                     zIndex: 3,
                     backgroundColor: 'background.paper',
+                    border: '1px solid',
                     borderRight: '2px solid',
                     borderColor: 'divider',
                     minWidth: fixedColumnWidths.generation,
+                    width: fixedColumnWidths.generation,
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
+                    fontSize: '11px',
+                    px: 0.5,
+                    py: 0.75,
                   }}
                 >
                   <TableSortLabel
                     active={sortField === 'generation'}
                     direction={sortField === 'generation' ? sortOrder : 'asc'}
                     onClick={() => handleSort('generation')}
+                    sx={{
+                      fontSize: '11px',
+                      '& .MuiTableSortLabel-icon': {
+                        opacity: 0,
+                        visibility: 'hidden',
+                        display: 'none',
+                      },
+                      '&:hover .MuiTableSortLabel-icon': {
+                        opacity: 1,
+                        visibility: 'visible',
+                        display: 'inline-block',
+                      },
+                      '&.Mui-active .MuiTableSortLabel-icon': {
+                        opacity: 0,
+                        visibility: 'hidden',
+                        display: 'none',
+                      },
+                      '&.Mui-active:hover .MuiTableSortLabel-icon': {
+                        opacity: 1,
+                        visibility: 'visible',
+                        display: 'inline-block',
+                      },
+                    }}
                   >
                     代數
                   </TableSortLabel>
@@ -291,63 +367,74 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                     left: getStickyLeft('boxCount'),
                     zIndex: 3,
                     backgroundColor: 'background.paper',
+                    border: '1px solid',
                     borderRight: '2px solid',
                     borderColor: 'divider',
                     minWidth: fixedColumnWidths.boxCount,
+                    width: fixedColumnWidths.boxCount,
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
+                    fontSize: '11px',
+                    px: 0.5,
+                    py: 0.75,
                   }}
                 >
                   <TableSortLabel
                     active={sortField === 'boxCount'}
                     direction={sortField === 'boxCount' ? sortOrder : 'asc'}
                     onClick={() => handleSort('boxCount')}
+                    sx={{ fontSize: '11px' }}
                   >
                     盒數
                   </TableSortLabel>
                 </TableCell>
 
                 {/* 日期欄位（可水平滾動） */}
-                {dateCols.map((date, index) => (
-                  <TableCell
-                    key={date}
-                    colSpan={1}
-                    sx={{
-                      minWidth: 100,
-                      width: 100,
-                      fontWeight: 'bold',
-                      backgroundColor: 'background.paper',
-                      borderLeft: index === 0 ? '2px solid' : 'none',
-                      borderColor: 'divider',
-                      whiteSpace: 'nowrap',
-                      textAlign: 'center',
-                      px: 0.5,
-                      py: 1,
-                    }}
-                  >
+                {dateCols.map((date, index) => {
+                  const isToday = dayjs(date).isSame(dayjs(), 'day');
+                  return (
+                    <TableCell
+                      key={date}
+                      colSpan={1}
+                      sx={{
+                        minWidth: 80,
+                        width: 80,
+                        fontWeight: 'bold',
+                        backgroundColor: isToday ? '#FFF8D7' : 'background.paper',
+                        border: '1px solid',
+                        borderLeft: index === 0 ? '2px solid' : '1px solid',
+                        borderColor: 'divider',
+                        whiteSpace: 'nowrap',
+                        textAlign: 'center',
+                        px: 0.5,
+                        py: 0.75,
+                        fontSize: '11px',
+                      }}
+                    >
                     <Tooltip title={dayjs(date).format('YYYY-MM-DD')}>
                       <Typography 
                         variant="body2" 
                         noWrap 
                         sx={{ 
                           fontWeight: 'bold',
-                          fontSize: '0.875rem',
+                          fontSize: '11px',
                         }}
                       >
                         {dayjs(date).format('MM/DD')}
                       </Typography>
                     </Tooltip>
                   </TableCell>
-                ))}
+                  );
+                })}
               </TableRow>
             </TableHead>
 
             <TableBody>
               {sortedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6 + dateCols.length} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={6 + dateCols.length} align="center" sx={{ py: 4, fontSize: '11px' }}>
                     {/* 固定欄位：細胞、生產目標、實際即時產量、起始培養日期、代數、盒數 = 6個 */}
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '11px' }}>
                       尚無資料
                     </Typography>
                   </TableCell>
@@ -362,13 +449,37 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         left: getStickyLeft('cellName'),
                         zIndex: 2,
                         backgroundColor: 'background.paper',
+                        border: '1px solid',
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '11px',
+                        px: 0.5,
+                        py: 0.75,
                       }}
                     >
-                      <Typography variant="body2" fontWeight="medium">
-                        {row.cellName}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
+                        <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '11px' }}>
+                          {row.cellName}
+                        </Typography>
+                        {onTargetEdit && (
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTargetEdit(row.id);
+                            }}
+                            sx={{
+                              padding: 0.25,
+                              '&:hover': {
+                                backgroundColor: 'action.hover',
+                              },
+                            }}
+                            title="編輯生產目標"
+                          >
+                            <EditIcon sx={{ fontSize: '14px' }} />
+                          </IconButton>
+                        )}
+                      </Box>
                     </TableCell>
 
                     <TableCell
@@ -377,11 +488,15 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         left: getStickyLeft('productionTarget'),
                         zIndex: 2,
                         backgroundColor: 'background.paper',
+                        border: '1px solid',
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '11px',
+                        px: 0.5,
+                        py: 0.75,
                       }}
                     >
-                      <Typography variant="body2">
+                      <Typography variant="body2" sx={{ fontSize: '11px' }}>
                         {row.productionTarget}
                       </Typography>
                     </TableCell>
@@ -392,11 +507,15 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         left: getStickyLeft('actualProduction'),
                         zIndex: 2,
                         backgroundColor: 'background.paper',
+                        border: '1px solid',
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '11px',
+                        px: 0.5,
+                        py: 0.75,
                       }}
                     >
-                      <Typography variant="body2">
+                      <Typography variant="body2" sx={{ fontSize: '11px' }}>
                         {row.actualProduction}
                       </Typography>
                     </TableCell>
@@ -407,11 +526,17 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         left: getStickyLeft('startCultureDate'),
                         zIndex: 2,
                         backgroundColor: 'background.paper',
+                        border: '1px solid',
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '11px',
+                        px: 0.5,
+                        py: 0.75,
                       }}
                     >
-                      {dayjs(row.startCultureDate).format('YYYY-MM-DD')}
+                      <Typography sx={{ fontSize: '11px' }}>
+                        {dayjs(row.startCultureDate).format('MM/DD')}
+                      </Typography>
                     </TableCell>
 
                     <TableCell
@@ -420,11 +545,17 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         left: getStickyLeft('generation'),
                         zIndex: 2,
                         backgroundColor: 'background.paper',
+                        border: '1px solid',
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '11px',
+                        px: 0.5,
+                        py: 0.75,
                       }}
                     >
-                      P{row.generation}
+                      <Typography sx={{ fontSize: '11px' }}>
+                        P{row.generation}
+                      </Typography>
                     </TableCell>
 
                     <TableCell
@@ -433,11 +564,17 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         left: getStickyLeft('boxCount'),
                         zIndex: 2,
                         backgroundColor: 'background.paper',
+                        border: '1px solid',
                         borderRight: '2px solid',
                         borderColor: 'divider',
+                        fontSize: '11px',
+                        px: 0.5,
+                        py: 0.75,
                       }}
                     >
-                      {row.boxCount}
+                      <Typography sx={{ fontSize: '11px' }}>
+                        {row.boxCount}
+                      </Typography>
                     </TableCell>
 
                     {/* 日期欄位（可水平滾動） */}
@@ -454,51 +591,53 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                           key={date}
                           onClick={() => onDateClick?.(row.id, date)}
                           sx={{
-                            minWidth: 100,
-                            width: 100,
-                            borderLeft: dateCols.indexOf(date) === 0 ? '2px solid' : 'none',
+                            minWidth: 80,
+                            width: 80,
+                            border: '1px solid',
+                            borderLeft: dateCols.indexOf(date) === 0 ? '2px solid' : '1px solid',
                             borderColor: 'divider',
                             position: 'relative',
                             padding: 0.5,
                             verticalAlign: 'top',
                             cursor: 'pointer',
+                            fontSize: '11px',
                             '&:hover': {
                               backgroundColor: 'action.hover',
                             },
                             ...(isToday && {
-                              backgroundColor: 'action.selected',
+                              backgroundColor: '#FFF8D7',
                               border: '2px solid',
-                              borderColor: 'primary.main',
+                              borderColor: 'divider',
                             }),
                           }}
                         >
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                             {/* 回收量 */}
                             <Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9px', fontWeight: isToday ? 'bold' : 'normal' }}>
                                 回收量
                               </Typography>
-                              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: recoveryVolume ? 'medium' : 'normal' }}>
+                              <Typography variant="body2" sx={{ fontSize: '11px', fontWeight: isToday ? 'bold' : (recoveryVolume ? 'medium' : 'normal') }}>
                                 {recoveryVolume || '-'}
                               </Typography>
                             </Box>
                             
                             {/* 實際回收量 */}
                             <Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9px', fontWeight: isToday ? 'bold' : 'normal' }}>
                                 實際回收量
                               </Typography>
-                              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: actualRecoveryVolume ? 'medium' : 'normal' }}>
+                              <Typography variant="body2" sx={{ fontSize: '11px', fontWeight: isToday ? 'bold' : (actualRecoveryVolume ? 'medium' : 'normal') }}>
                                 {actualRecoveryVolume || '-'}
                               </Typography>
                             </Box>
                             
                             {/* 工單類型 */}
                             <Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9px', fontWeight: isToday ? 'bold' : 'normal' }}>
                                 工單類型
                               </Typography>
-                              <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: workOrderType ? 'medium' : 'normal' }}>
+                              <Typography variant="body2" sx={{ fontSize: '11px', fontWeight: isToday ? 'bold' : (workOrderType ? 'medium' : 'normal') }}>
                                 {workOrderType ? getTicketName(workOrderType) : '-'}
                               </Typography>
                             </Box>

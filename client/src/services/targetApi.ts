@@ -20,13 +20,18 @@ const getApiBaseUrl = (): string => {
 
   // 如果當前訪問地址不是 localhost，自動構建 API URL
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const isHttps = typeof window !== 'undefined' ? window.location.protocol === 'https:' : false;
   
   if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
     // 本機訪問，使用 localhost
     return 'http://localhost:5000/api';
+  } else if (currentHost === 'irmed.workorder.ngrok.dev') {
+    // 如果是前端的 ngrok 域名，使用後端的 ngrok URL（HTTPS）
+    return 'https://irmed.woapi.ngrok.dev/api';
   } else {
     // 外部訪問（使用 IP 地址），構建對應的 API URL
-    return `http://${currentHost}:5000/api`;
+    const protocol = isHttps ? 'https' : 'http';
+    return `${protocol}://${currentHost}:5000/api`;
   }
 };
 

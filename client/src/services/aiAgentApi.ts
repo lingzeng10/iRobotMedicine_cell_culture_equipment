@@ -6,10 +6,16 @@ const getApiBaseUrl = (): string => {
     return process.env.REACT_APP_API_URL;
   }
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const isHttps = typeof window !== 'undefined' ? window.location.protocol === 'https:' : false;
+  
   if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
     return 'http://localhost:5000/api';
+  } else if (currentHost === 'irmed.workorder.ngrok.dev') {
+    // 如果是前端的 ngrok 域名，使用後端的 ngrok URL（HTTPS）
+    return 'https://irmed.woapi.ngrok.dev/api';
   } else {
-    return `http://${currentHost}:5000/api`;
+    const protocol = isHttps ? 'https' : 'http';
+    return `${protocol}://${currentHost}:5000/api`;
   }
 };
 

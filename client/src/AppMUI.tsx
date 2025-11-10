@@ -42,6 +42,7 @@ import {
 
 // 匯入自定義元件
 import CreateTargetForm from './components/CreateTargetForm';
+import EditTargetForm from './components/EditTargetForm';
 import TicketDetailMUI from './components/TicketDetailMUI';
 import VersionDialog from './components/VersionDialog';
 import AIAgentPanel from './components/AIAgentPanel';
@@ -288,6 +289,7 @@ const AppMUI: React.FC = () => {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [todaySchedulesDialogOpen, setTodaySchedulesDialogOpen] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<ProductionTarget | null>(null);
 
   // 載入目標列表
   const loadTargets = useCallback(async () => {
@@ -494,6 +496,21 @@ const AppMUI: React.FC = () => {
     setTargets((prev: ProductionTarget[]) => prev.map((target: ProductionTarget) => 
       target.id === targetId ? updatedTarget : target
     ));
+    // 關閉編輯對話框
+    setEditingTarget(null);
+    // 重新載入表格資料
+    loadScheduleTableData();
+  };
+
+  /**
+   * 處理編輯生產目標
+   * @param targetId 目標 ID
+   */
+  const handleTargetEdit = (targetId: string) => {
+    const target = targets.find(t => t.id === targetId);
+    if (target) {
+      setEditingTarget(target);
+    }
   };
 
   /**
@@ -717,6 +734,7 @@ const AppMUI: React.FC = () => {
                           setError('刪除工單排程失敗，請稍後再試');
                         }
                       }}
+                      onTargetEdit={handleTargetEdit}
                     />
                   </Box>
                 </Box>
@@ -730,6 +748,14 @@ const AppMUI: React.FC = () => {
           open={createTargetDialogOpen}
           onClose={() => setCreateTargetDialogOpen(false)}
           onSuccess={handleCreateTargetSuccess}
+        />
+
+        {/* 編輯生產目標對話框 */}
+        <EditTargetForm
+          open={editingTarget !== null}
+          target={editingTarget}
+          onClose={() => setEditingTarget(null)}
+          onSuccess={handleTargetUpdate}
         />
 
         {/* 工單詳情對話框 */}
