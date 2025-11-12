@@ -16,6 +16,7 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
+  Chip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -32,15 +33,19 @@ import 'dayjs/locale/zh-tw';
 
 import { TicketService } from '../services/api';
 import { Ticket, TicketStatus, UpdateTicketRequest } from '../types/ticket';
-import { getStationDisplay, getTicketName } from '../utils/stationMapping';
+import { getStationDisplay, getTicketName, getStatusText, getStatusColor, getStatusCustomColor } from '../utils/stationMapping';
+import { TargetService } from '../services/targetApi';
 
 // 工單詳情元件屬性介面
-interface TicketDetailProps {
+export interface TicketDetailProps {
   open: boolean; // 對話框是否開啟
   ticketId?: string; // 工單 ID
   ticket?: Ticket; // 工單資料
+  scheduleStatus?: string; // 排程狀態（從表格中傳遞）
+  scheduleId?: string; // 排程 ID（用於更新排程狀態）
   onClose: () => void; // 關閉對話框回調函數
   onUpdate?: (updatedTicket: Ticket) => void; // 更新工單回調函數
+  onScheduleUpdate?: () => void; // 更新排程後的回調函數
 }
 
 // 工單詳情元件
@@ -48,8 +53,11 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
   open,
   ticketId,
   ticket,
+  scheduleStatus,
+  scheduleId,
   onClose,
   onUpdate,
+  onScheduleUpdate,
 }) => {
   // 狀態管理
   // 注意：初始狀態使用 null，確保對話框開啟時從 API 重新載入最新資料
@@ -60,6 +68,10 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
 
   // 編輯表單狀態
   const [editForm, setEditForm] = useState<UpdateTicketRequest>({});
+  // 排程狀態編輯
+  const [scheduleStatusEdit, setScheduleStatusEdit] = useState<string>(scheduleStatus || 'NOT_STARTED');
+  // 排程狀態更新中
+  const [updatingScheduleStatus, setUpdatingScheduleStatus] = useState(false);
 
   // 表單驗證錯誤狀態
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -255,6 +267,39 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
   };
 
   /**
+   * 處理排程狀態更新
+   */
+  const handleScheduleStatusUpdate = async () => {
+    if (!scheduleId || !scheduleStatus) return;
+    
+    // 如果狀態沒有變更，不需要更新
+    if (scheduleStatusEdit === scheduleStatus) return;
+
+    setUpdatingScheduleStatus(true);
+    setError(null);
+
+    try {
+      const response = await TargetService.updateSchedule(scheduleId, {
+        status: scheduleStatusEdit,
+      });
+
+      if (response.success) {
+        // 觸發排程更新回調，讓父組件重新載入排程列表
+        if (onScheduleUpdate) {
+          onScheduleUpdate();
+        }
+      } else {
+        setError(response.message || '更新排程狀態失敗');
+      }
+    } catch (error: any) {
+      console.error('更新排程狀態錯誤:', error);
+      setError('更新排程狀態失敗，請稍後再試');
+    } finally {
+      setUpdatingScheduleStatus(false);
+    }
+  };
+
+  /**
    * 處理編輯模式切換
    */
   const handleEditToggle = () => {
@@ -262,6 +307,10 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
       // 取消編輯，重置表單
       setEditForm({});
       setFormErrors({});
+      // 重置排程狀態編輯
+      if (scheduleStatus) {
+        setScheduleStatusEdit(scheduleStatus);
+      }
     } else {
       // 進入編輯模式，初始化表單（只包含有值的欄位，避免發送 undefined）
       if (ticketData) {
@@ -298,6 +347,10 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
         
         setEditForm(initialForm);
       }
+      // 初始化排程狀態編輯
+      if (scheduleStatus) {
+        setScheduleStatusEdit(scheduleStatus);
+      }
     }
     setEditing(!editing);
   };
@@ -305,7 +358,7 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
   /**
    * 處理表單提交
    */
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // 驗證表單
     const errors: { [key: string]: string } = {};
     
@@ -426,8 +479,15 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
     }
     
     if (Object.keys(editForm).length > 0) {
-      handleUpdate(editForm);
-    } else {
+      await handleUpdate(editForm);
+    }
+    
+    // 如果有排程狀態變更，同時更新排程狀態
+    if (scheduleId && scheduleStatus && scheduleStatusEdit !== scheduleStatus) {
+      await handleScheduleStatusUpdate();
+    }
+    
+    if (Object.keys(editForm).length === 0 && (!scheduleId || !scheduleStatus || scheduleStatusEdit === scheduleStatus)) {
       // 如果沒有更改，直接退出編輯模式
       setEditing(false);
       setEditForm({});
@@ -520,6 +580,13 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
     }
     // 如果對話框開啟時，不要使用 ticket prop，因為會從 API 重新載入
   }, [ticket, ticketData, editing, open]);
+
+  // 當 scheduleStatus 變化時，同步更新 scheduleStatusEdit
+  useEffect(() => {
+    if (scheduleStatus) {
+      setScheduleStatusEdit(scheduleStatus);
+    }
+  }, [scheduleStatus]);
 
   // 調試：記錄當前 ticketData 狀態的變化
   useEffect(() => {
@@ -618,6 +685,55 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
                     <Typography variant="body1">
                       {getTicketName(ticketData.deviceId)}
                     </Typography>
+
+                    {/* 工單狀態 */}
+                    {scheduleStatus && (
+                      <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, mt: 2 }}>
+                          <DeviceIcon color="primary" />
+                          <Typography variant="body2" color="text.secondary">
+                            工單狀態:
+                          </Typography>
+                        </Box>
+                        {editing && scheduleId ? (
+                          <TextField
+                            fullWidth
+                            select
+                            value={scheduleStatusEdit}
+                            onChange={(e) => setScheduleStatusEdit(e.target.value)}
+                            disabled={updatingScheduleStatus}
+                            SelectProps={{
+                              native: false,
+                            }}
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                backgroundColor: 'background.paper',
+                              },
+                            }}
+                          >
+                            <MenuItem value="NOT_STARTED">未開始</MenuItem>
+                            <MenuItem value="IN_PROGRESS">進行中</MenuItem>
+                            <MenuItem value="COMPLETED">已完成</MenuItem>
+                          </TextField>
+                        ) : (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={getStatusText(scheduleStatus)}
+                              size="small"
+                              sx={{
+                                fontSize: '0.875rem',
+                                backgroundColor: getStatusCustomColor(scheduleStatus),
+                                color: '#000000',
+                                fontWeight: 'medium',
+                                '&:hover': {
+                                  opacity: 0.8,
+                                },
+                              }}
+                            />
+                          </Box>
+                        )}
+                      </>
+                    )}
 
                     {ticketData.imageId && (
                       <>

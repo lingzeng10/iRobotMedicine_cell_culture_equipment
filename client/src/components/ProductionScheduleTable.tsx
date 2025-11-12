@@ -30,11 +30,13 @@ import {
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { ProductionScheduleRow, TicketScheduleWithRelations } from '../types/target';
-import { getTicketName, getStatusText, getStatusColor } from '../utils/stationMapping';
+import { getTicketName, getStatusText, getStatusColor, getStatusCustomColor } from '../utils/stationMapping';
 
 interface ProductionScheduleTableProps {
   data: ProductionScheduleRow[];
   dateColumns?: string[]; // 可選的日期欄位列表
+  selectedYear?: number; // 選擇的年份
+  selectedMonth?: number; // 選擇的月份（1-12）
   onDateClick?: (targetId: string, date: string) => void; // 點擊日期時的回調（新增排程）
   onScheduleClick?: (schedule: TicketScheduleWithRelations) => void; // 點擊工單排程時的回調（查看詳情）
   onScheduleEdit?: (schedule: TicketScheduleWithRelations) => void; // 編輯工單排程時的回調
@@ -48,6 +50,8 @@ type SortOrder = 'asc' | 'desc';
 const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
   data,
   dateColumns = [],
+  selectedYear,
+  selectedMonth,
   onDateClick,
   onScheduleClick,
   onScheduleEdit,
@@ -99,17 +103,34 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
 
   // 生成日期欄位
   const generateDateColumns = () => {
-    if (dateColumns.length === 0) {
-      // 如果沒有提供日期欄位，從資料中提取
-      const dates = new Set<string>();
-      data.forEach(row => {
-        if (row.dates) {
-          Object.keys(row.dates).forEach(date => dates.add(date));
-        }
-      });
-      return Array.from(dates).sort();
+    // 如果提供了年月，根據年月生成該月的所有日期
+    if (selectedYear && selectedMonth) {
+      const year = selectedYear;
+      const month = selectedMonth - 1; // dayjs 月份從 0 開始
+      const daysInMonth = dayjs().year(year).month(month).daysInMonth();
+      const dates: string[] = [];
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = dayjs().year(year).month(month).date(day);
+        dates.push(date.format('YYYY-MM-DD'));
+      }
+      
+      return dates;
     }
-    return dateColumns;
+    
+    // 如果提供了 dateColumns，使用它
+    if (dateColumns.length > 0) {
+      return dateColumns;
+    }
+    
+    // 否則從資料中提取
+    const dates = new Set<string>();
+    data.forEach(row => {
+      if (row.dates) {
+        Object.keys(row.dates).forEach(date => dates.add(date));
+      }
+    });
+    return Array.from(dates).sort();
   };
 
   const dateCols = generateDateColumns();
@@ -586,10 +607,25 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                       const actualRecoveryVolume = dateData?.actualRecoveryVolume || '';
                       const workOrderType = dateData?.workOrderType || (schedules.length > 0 ? schedules[0].ticket?.deviceId : '');
                       
+                      // 判斷是否有工單
+                      const hasSchedules = schedules.length > 0;
+                      
                       return (
                         <TableCell
                           key={date}
-                          onClick={() => onDateClick?.(row.id, date)}
+                          onClick={(e) => {
+                            // 如果點擊的是工單類型文字，不處理（由工單類型自己的點擊事件處理）
+                            if ((e.target as HTMLElement).closest('.work-order-type-clickable')) {
+                              return;
+                            }
+                            // 如果有工單，點擊時查看第一個工單詳情
+                            if (hasSchedules && schedules[0] && onScheduleClick) {
+                              onScheduleClick(schedules[0]);
+                            } else {
+                              // 如果沒有工單，點擊時打開新增排程視窗
+                              onDateClick?.(row.id, date);
+                            }
+                          }}
                           sx={{
                             minWidth: 80,
                             width: 80,
@@ -637,9 +673,55 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '9px', fontWeight: isToday ? 'bold' : 'normal' }}>
                                 工單類型
                               </Typography>
-                              <Typography variant="body2" sx={{ fontSize: '11px', fontWeight: isToday ? 'bold' : (workOrderType ? 'medium' : 'normal') }}>
-                                {workOrderType ? getTicketName(workOrderType) : '-'}
-                              </Typography>
+                              {hasSchedules && schedules[0] ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                  <Typography 
+                                    variant="body2" 
+                                    className="work-order-type-clickable"
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // 阻止事件冒泡
+                                      if (onScheduleClick) {
+                                        onScheduleClick(schedules[0]);
+                                      }
+                                    }}
+                                    sx={{ 
+                                      fontSize: '11px', 
+                                      fontWeight: isToday ? 'bold' : 'medium',
+                                      cursor: 'pointer',
+                                      color: 'primary.main',
+                                      '&:hover': {
+                                        textDecoration: 'underline',
+                                      },
+                                    }}
+                                  >
+                                    {workOrderType ? getTicketName(workOrderType) : '-'}
+                                  </Typography>
+                                  {schedules[0].status && (
+                                    <Chip
+                                      label={getStatusText(schedules[0].status)}
+                                      size="small"
+                                      sx={{
+                                        height: '16px',
+                                        fontSize: '8px',
+                                        backgroundColor: getStatusCustomColor(schedules[0].status),
+                                        color: '#000000',
+                                        fontWeight: 'medium',
+                                        '& .MuiChip-label': {
+                                          padding: '0 4px',
+                                          fontSize: '8px',
+                                        },
+                                        '&:hover': {
+                                          opacity: 0.8,
+                                        },
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+                              ) : (
+                                <Typography variant="body2" sx={{ fontSize: '11px', fontWeight: isToday ? 'bold' : 'normal' }}>
+                                  {workOrderType ? getTicketName(workOrderType) : '-'}
+                                </Typography>
+                              )}
                             </Box>
                           </Box>
                         </TableCell>

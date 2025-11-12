@@ -39,7 +39,6 @@ import {
   Close as CloseIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 
 // 匯入自定義元件
 import CreateTargetForm from './components/CreateTargetForm';
@@ -278,8 +277,6 @@ const AppMUI: React.FC = () => {
   // 狀態管理
   const [targets, setTargets] = useState<ProductionTarget[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [selectedScheduleStatus, setSelectedScheduleStatus] = useState<string | null>(null); // 保存選中的排程狀態
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null); // 保存選中的排程 ID
   const [createTargetDialogOpen, setCreateTargetDialogOpen] = useState(false);
   const [ticketDetailDialogOpen, setTicketDetailDialogOpen] = useState(false);
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
@@ -293,8 +290,6 @@ const AppMUI: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [todaySchedulesDialogOpen, setTodaySchedulesDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<ProductionTarget | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(dayjs().year());
-  const [selectedMonth, setSelectedMonth] = useState<number>(dayjs().month() + 1);
 
   // 載入目標列表
   const loadTargets = useCallback(async () => {
@@ -672,11 +667,11 @@ const AppMUI: React.FC = () => {
         >
           <Toolbar /> {/* 為 AppBar 留出空間 */}
           
-          <Box sx={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', width: '100%', flexDirection: 'column' }}>
+          <Box sx={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', width: '100%' }}>
             {/* 表格視圖 - 佔滿整個區域 */}
             <Box sx={{ 
               width: '100%', 
-              height: '100%', 
+                  height: '100%', 
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
@@ -688,68 +683,7 @@ const AppMUI: React.FC = () => {
               ) : (
                 <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="h6">生產排程表</Typography>
-                      {/* 年月選擇器 */}
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                          <InputLabel id="year-select-label">年</InputLabel>
-                          <Select
-                            labelId="year-select-label"
-                            value={selectedYear}
-                            label="年"
-                            onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            sx={{
-                              backgroundColor: 'rgba(26, 31, 58, 0.5)',
-                              color: '#e0e7ff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.3)',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.5)',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#00d4ff',
-                              },
-                            }}
-                          >
-                            {Array.from({ length: 10 }, (_, i) => dayjs().year() - 2 + i).map((year) => (
-                              <MenuItem key={year} value={year}>
-                                {year}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                          <InputLabel id="month-select-label">月</InputLabel>
-                          <Select
-                            labelId="month-select-label"
-                            value={selectedMonth}
-                            label="月"
-                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                            sx={{
-                              backgroundColor: 'rgba(26, 31, 58, 0.5)',
-                              color: '#e0e7ff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.3)',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.5)',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#00d4ff',
-                              },
-                            }}
-                          >
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                              <MenuItem key={month} value={month}>
-                                {month}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Box>
-                    </Box>
+                    <Typography variant="h6">生產排程表</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Button
                         variant="contained"
@@ -770,14 +704,10 @@ const AppMUI: React.FC = () => {
                   </Box>
                   <Box sx={{ flex: 1, overflow: 'hidden' }}>
                     <ProductionScheduleTable 
-                      data={scheduleTableData}
-                      selectedYear={selectedYear}
-                      selectedMonth={selectedMonth}
+                      data={scheduleTableData} 
                       onDateClick={handleDateClick}
                       onScheduleClick={(schedule) => {
                         if (schedule.ticket) {
-                          setSelectedScheduleStatus(schedule.status); // 保存排程狀態
-                          setSelectedScheduleId(schedule.id); // 保存排程 ID
                           handleTicketSelect(schedule.ticket as Ticket);
                         }
                       }}
@@ -833,16 +763,11 @@ const AppMUI: React.FC = () => {
           open={ticketDetailDialogOpen}
           ticketId={selectedTicket?.id} // 優先使用 ticketId，確保從 API 重新載入完整資料（包含所有工單類型的詳細信息）
           ticket={selectedTicket || undefined} // 保留 ticket prop 作為備用
-          {...(selectedScheduleStatus && { scheduleStatus: selectedScheduleStatus })} // 傳遞排程狀態
-          {...(selectedScheduleId && { scheduleId: selectedScheduleId })} // 傳遞排程 ID
           onClose={() => {
             setTicketDetailDialogOpen(false);
             setSelectedTicket(null);
-            setSelectedScheduleStatus(null); // 清除排程狀態
-            setSelectedScheduleId(null); // 清除排程 ID
           }}
           onUpdate={handleTicketUpdate}
-          onScheduleUpdate={handleScheduleUpdate} // 傳遞排程更新回調
         />
 
         {/* 錯誤訊息 */}
