@@ -10,7 +10,7 @@ datasource db {
 
 // 工單資料模型
 model Ticket {
-  id          String   @id @default(cuid()) // 工單唯一識別碼
+  id          String   @id // 工單唯一識別碼（自訂格式）
   deviceId    String   // 設備 ID
   imageId     String?  // 影像 ID（可選）
   status      String   @default("OPEN") // 工單狀態，預設為 OPEN
@@ -43,18 +43,22 @@ model Ticket {
   subRecycledMediumType String? // 回收培養液種類（僅繼代工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5, 不回收）
   collectDiscardBoxCount Int? // 回收/丟盒數（僅回收/丟棄工單使用）
   collectDiscardRecycledMediumType String? // 回收培養液種類（僅回收/丟棄工單使用，可選：022-02.4, 022-02.1, SAM10, CM2, AM5）
+  scheduleConfirmed Boolean @default(false) // 是否已確認排程，預設為 false
   createdAt   DateTime @default(now()) // 建立時間
   updatedAt   DateTime @updatedAt // 更新時間
   
   // 關聯到工單排程和照片
   schedules   TicketSchedule[] // 工單排程關聯
   photos      Photo[] // 工單照片關聯
+  materialRequests MaterialRequest[] // 備料需求關聯
 }
 
 // 預生產目標資料模型
 model ProductionTarget {
   id                      String   @id @default(cuid()) // 目標唯一識別碼
   name                    String   // 目標名稱（細胞）
+  idCard                  String   @default("A00000") // 身分證（預設 A00000）
+  productionType          String?  @default("EXOSOME") // 生產類型（EXOSOME: 外泌體, CELL: 細胞）
   materialType            String?  // 收集原料種類（可選）
   responsiblePerson       String?  // 負責人員（可選：OP001, OP002, OP003）
   productionTarget        String?  // 生產目標（如 "3L"）
@@ -103,6 +107,24 @@ model Photo {
   ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }
 
+// 備料需求資料模型
+model MaterialRequest {
+  id              String   @id @default(cuid()) // 備料需求唯一識別碼
+  ticketId        String   // 工單 ID
+  deviceId        String   // 工單類型（deviceId）
+  status          String   @default("PENDING") // 備料狀態：PENDING（待備料）、PREPARED（已備料）、CANCELLED（已取消）
+  materials       String   // JSON 格式存儲耗材清單
+  createdAt       DateTime @default(now()) // 建立時間
+  updatedAt       DateTime @updatedAt // 更新時間
+  
+  // 關聯到工單
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  @@index([ticketId])
+  @@index([status])
+}
+
 // 工單狀態：使用字串 "OPEN" 或 "CLOSED"
 // 目標狀態：使用字串 "PLANNING", "IN_PROGRESS", "COMPLETED", "CANCELLED"
 // 排程優先級：使用字串 "HIGH", "MEDIUM", "LOW"
+// 備料狀態：使用字串 "PENDING", "PREPARED", "CANCELLED"

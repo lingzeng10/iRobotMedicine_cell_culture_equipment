@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult, param } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
+const { generateTicketId, extractTargetCode, calculateSequence } = require('../utils/ticketIdGenerator');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -115,6 +116,7 @@ router.get('/:id', [
  * POST /api/targets
  * 請求體：
  * - name: 目標名稱 (必填)
+ * - productionType: 生產類型 (可選：EXOSOME 外泌體, CELL 細胞，默認為 EXOSOME)
  * - materialType: 收集原料種類 (可選)
  * - responsiblePerson: 負責人員 (可選：OP001, OP002, OP003)
  * - productionTarget: 生產目標 (可選，如 "3L")
@@ -128,8 +130,22 @@ router.post('/', [
     .isString()
     .notEmpty()
     .withMessage('目標名稱不能為空')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('目標名稱長度必須在 2-100 字元之間'),
+    .custom((value) => {
+      // 驗證：去掉連字號後必須是4碼英數字
+      const cleaned = value.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleaned.length !== 4) {
+        throw new Error('生產目標應為4碼英數字');
+      }
+      if (!/^[a-zA-Z0-9]{4}$/.test(cleaned)) {
+        throw new Error('生產目標應為4碼英數字');
+      }
+      return true;
+    })
+    .withMessage('生產目標應為4碼英數字'),
+  body('productionType')
+    .optional()
+    .isIn(['EXOSOME', 'CELL'])
+    .withMessage('生產類型必須為 EXOSOME 或 CELL'),
   body('materialType')
     .optional()
     .isIn(['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'])
@@ -160,6 +176,13 @@ router.post('/', [
     .withMessage('預計完成時間不能為空')
     .matches(/^\d{4}-\d{2}-\d{2}$/)
     .withMessage('預計完成時間格式必須為 YYYY-MM-DD'),
+  body('idCard')
+    .optional()
+    .isString()
+    .isLength({ min: 6, max: 6 })
+    .withMessage('身分證必須為6碼')
+    .matches(/^[A-Z0-9]{6}$/)
+    .withMessage('身分證必須為6碼英數字'),
 ], async (req, res) => {
   try {
     // 驗證請求體
@@ -172,7 +195,7 @@ router.post('/', [
       });
     }
 
-    const { name, materialType, responsiblePerson, productionTarget, startCultureDate, generation, boxCount, expectedCompletionDate } = req.body;
+    const { name, productionType, materialType, responsiblePerson, productionTarget, startCultureDate, generation, boxCount, expectedCompletionDate, idCard } = req.body;
 
     // 建立新目標並自動創建排程（使用事務確保一致性）
     const result = await prisma.$transaction(async (tx) => {
@@ -180,6 +203,8 @@ router.post('/', [
       const target = await tx.productionTarget.create({
         data: {
           name,
+          idCard: idCard || 'A00000', // 身分證（預設 A00000）
+          productionType: productionType || 'EXOSOME', // 默認為外泌體
           materialType: materialType || null,
           responsiblePerson: responsiblePerson || null,
           productionTarget: productionTarget || null,
@@ -234,9 +259,22 @@ router.post('/', [
           // 格式化日期為 YYYY-MM-DD（使用本地時間）
           const dateString = formatDate(currentDate);
 
-          // 創建工單
+          // 計算流水號
+          const sequence = await calculateSequence(tx, target.id, target.createdAt, dateString);
+
+          // 生成工單 ID
+          const ticketId = generateTicketId({
+            idCard: target.idCard || 'A00000',
+            targetCreatedAt: target.createdAt,
+            targetName: target.name,
+            scheduledDate: dateString,
+            sequence: sequence,
+          });
+
+          // 創建工單（使用自訂 ID）
           const ticket = await tx.ticket.create({
             data: {
+              id: ticketId,
               deviceId,
               status: 'OPEN',
             },
@@ -280,10 +318,12 @@ router.post('/', [
     });
   } catch (error) {
     console.error('建立預生產目標錯誤:', error);
+    console.error('錯誤堆疊:', error.stack);
     res.status(500).json({
       success: false,
       message: '建立預生產目標失敗',
       error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 });
@@ -293,6 +333,7 @@ router.post('/', [
  * PUT /api/targets/:id
  * 請求體：
  * - name: 目標名稱 (可選)
+ * - productionType: 生產類型 (可選：EXOSOME 外泌體, CELL 細胞)
  * - materialType: 收集原料種類 (可選)
  * - responsiblePerson: 負責人員 (可選：OP001, OP002, OP003)
  * - productionTarget: 生產目標 (可選，如 "3L")
@@ -309,6 +350,10 @@ router.put('/:id', [
     .isString()
     .isLength({ min: 2, max: 100 })
     .withMessage('目標名稱長度必須在 2-100 字元之間'),
+  body('productionType')
+    .optional()
+    .isIn(['EXOSOME', 'CELL'])
+    .withMessage('生產類型必須為 EXOSOME 或 CELL'),
   body('materialType')
     .optional()
     .isIn(['022-02.4', '022-02.1', 'SAM10', 'CM2', 'AM5'])
@@ -359,6 +404,7 @@ router.put('/:id', [
 
     // 只更新提供的欄位
     if (req.body.name !== undefined) updateData.name = req.body.name;
+    if (req.body.productionType !== undefined) updateData.productionType = req.body.productionType;
     if (req.body.materialType !== undefined) updateData.materialType = req.body.materialType || null;
     if (req.body.responsiblePerson !== undefined) updateData.responsiblePerson = req.body.responsiblePerson || null;
     if (req.body.productionTarget !== undefined) updateData.productionTarget = req.body.productionTarget || null;

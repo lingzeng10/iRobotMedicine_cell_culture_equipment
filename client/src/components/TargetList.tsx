@@ -62,6 +62,9 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<ProductionTarget | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingTargetId, setDeletingTargetId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // 新增目標表單狀態
   const [newTarget, setNewTarget] = useState<CreateTargetRequest>({
@@ -122,28 +125,41 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
   };
 
   /**
-   * 處理刪除目標
+   * 處理刪除目標確認
    * @param targetId 目標 ID
    */
-  const handleDeleteTarget = async (targetId: string) => {
-    if (!window.confirm('確定要刪除這個預生產目標嗎？')) {
-      return;
-    }
+  const handleDeleteClick = (targetId: string) => {
+    setDeletingTargetId(targetId);
+    setDeleteDialogOpen(true);
+  };
+
+  /**
+   * 處理刪除目標
+   */
+  const handleDeleteTarget = async () => {
+    if (!deletingTargetId) return;
+
+    setDeleting(true);
+    setError(null);
 
     try {
-      const response = await TargetService.deleteTarget(targetId);
+      const response = await TargetService.deleteTarget(deletingTargetId);
 
       if (response.success) {
         // 通知父組件刪除目標成功
         if (onTargetDelete) {
-          onTargetDelete(targetId);
+          onTargetDelete(deletingTargetId);
         }
+        setDeleteDialogOpen(false);
+        setDeletingTargetId(null);
       } else {
         setError(response.message || '刪除預生產目標失敗');
       }
     } catch (error) {
       console.error('刪除預生產目標錯誤:', error);
       setError('刪除預生產目標失敗，請稍後再試');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -298,7 +314,7 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
                           size="small"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteTarget(target.id);
+                            handleDeleteClick(target.id);
                           }}
                         >
                           <DeleteIcon fontSize="small" />
@@ -576,6 +592,47 @@ const TargetList: React.FC<TargetListProps> = ({ targets, onTargetSelect, select
               variant="contained"
             >
               儲存
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 刪除確認對話框 */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={() => !deleting && setDeleteDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <WarningIcon color="error" />
+              <Typography variant="h6">確認刪除</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1">
+              確定要刪除這個預生產目標嗎？
+            </Typography>
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              刪除目標後，相關的工單排程也會一併刪除，此操作無法復原。
+            </Alert>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setDeleteDialogOpen(false)} 
+              disabled={deleting}
+              color="inherit"
+            >
+              取消
+            </Button>
+            <Button 
+              onClick={handleDeleteTarget} 
+              variant="contained" 
+              color="error"
+              disabled={deleting}
+              startIcon={deleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+            >
+              {deleting ? '刪除中...' : '確認刪除'}
             </Button>
           </DialogActions>
         </Dialog>

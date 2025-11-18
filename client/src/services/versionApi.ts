@@ -3,11 +3,6 @@ import { ApiResponse } from '../types/ticket';
 
 // 動態獲取 API URL（支援外部訪問）
 const getApiBaseUrl = (): string => {
-  // 優先使用環境變數
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-
   // 如果當前訪問地址不是 localhost，自動構建 API URL
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const isHttps = typeof window !== 'undefined' ? window.location.protocol === 'https:' : false;
@@ -18,14 +13,22 @@ const getApiBaseUrl = (): string => {
   } else if (currentHost === 'irmed.workorder.ngrok.dev') {
     // 如果是前端的 ngrok 域名，使用後端的 ngrok URL（HTTPS）
     return 'https://irmed.woapi.ngrok.dev/api';
+  } else if (currentHost.includes('.ngrok.dev') || currentHost.includes('.ngrok.io')) {
+    // 如果是其他 ngrok 域名，嘗試推斷後端 URL
+    const baseDomain = currentHost.replace('.ngrok.dev', '').replace('.ngrok.io', '');
+    const protocol = isHttps ? 'https' : 'http';
+    const tld = currentHost.includes('.ngrok.dev') ? '.ngrok.dev' : '.ngrok.io';
+    // 嘗試常見的後端域名模式
+    if (baseDomain.includes('workorder')) {
+      return 'https://irmed.woapi.ngrok.dev/api';
+    }
+    return `${protocol}://${baseDomain}-api${tld}/api`;
   } else {
-    // 外部訪問（使用 IP 地址），構建對應的 API URL
+    // 外部訪問（使用 IP 地址或其他域名），構建對應的 API URL
     const protocol = isHttps ? 'https' : 'http';
     return `${protocol}://${currentHost}:5000/api`;
   }
 };
-
-const API_BASE_URL = getApiBaseUrl();
 
 // 版本資訊介面
 export interface VersionInfo {
@@ -61,7 +64,7 @@ class VersionService {
    */
   async getVersionInfo(): Promise<ApiResponse<VersionInfo>> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/version`);
+      const response = await axios.get(`${getApiBaseUrl()}/version`);
       return response.data;
     } catch (error: any) {
       console.error('獲取版本資訊錯誤:', error);
@@ -79,7 +82,7 @@ class VersionService {
    */
   async getChangelog(): Promise<ApiResponse<{changelog: ChangelogEntry[], currentVersion: string, buildNumber: string}>> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/version/changelog`);
+      const response = await axios.get(`${getApiBaseUrl()}/version/changelog`);
       return response.data;
     } catch (error: any) {
       console.error('獲取更新日誌錯誤:', error);
@@ -98,7 +101,7 @@ class VersionService {
    */
   async checkForUpdates(clientVersion: string): Promise<ApiResponse<VersionCheckResult>> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/version/check`, {
+      const response = await axios.get(`${getApiBaseUrl()}/version/check`, {
         params: { version: clientVersion }
       });
       return response.data;
@@ -118,10 +121,22 @@ class VersionService {
    */
   getLocalVersionInfo(): VersionInfo {
     return {
-      version: '1.4.0',
-      buildNumber: '20251104-001',
-      releaseDate: '2025-11-04',
+      version: '1.5.0',
+      buildNumber: '20251112-001',
+      releaseDate: '2025-11-12',
       changelog: [
+        {
+          version: '1.5.0',
+          date: '2025-11-12',
+          changes: [
+            '🤖 新增AI agent智能助手功能',
+            '📊 新增工單狀態顯示（未開始、進行中、已完成）',
+            '📅 新增排程日曆功能',
+            '🎨 工單狀態顏色標示（未開始：黃色、進行中：藍色、已完成：綠色）',
+            '✏️ 支援編輯工單狀態',
+            '🔄 優化生產排程表格顯示'
+          ]
+        },
         {
           version: '1.4.0',
           date: '2025-11-04',
@@ -165,7 +180,10 @@ class VersionService {
         '照片上傳管理',
         'Excel 資料匯出',
         '外部設備訪問',
-        '智慧醫療主題'
+        '智慧醫療主題',
+        'AI agent智能助手',
+        '工單狀態顯示與編輯',
+        '排程日曆'
       ]
     };
   }

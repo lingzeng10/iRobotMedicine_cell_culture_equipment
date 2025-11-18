@@ -31,6 +31,7 @@ import {
 import dayjs from 'dayjs';
 import { ProductionScheduleRow, TicketScheduleWithRelations } from '../types/target';
 import { getTicketName, getStatusText, getStatusColor, getStatusCustomColor } from '../utils/stationMapping';
+import CustomCalendarIcon from './CustomCalendarIcon';
 
 interface ProductionScheduleTableProps {
   data: ProductionScheduleRow[];
@@ -42,6 +43,7 @@ interface ProductionScheduleTableProps {
   onScheduleEdit?: (schedule: TicketScheduleWithRelations) => void; // 編輯工單排程時的回調
   onScheduleDelete?: (scheduleId: string) => void; // 刪除工單排程時的回調
   onTargetEdit?: (targetId: string) => void; // 編輯生產目標時的回調
+  onTargetDelete?: (targetId: string) => void; // 刪除生產目標時的回調
 }
 
 type SortField = 'cellName' | 'productionTarget' | 'actualProduction' | 'startCultureDate' | 'generation' | 'boxCount';
@@ -57,6 +59,7 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
   onScheduleEdit,
   onScheduleDelete,
   onTargetEdit,
+  onTargetDelete,
 }) => {
   const [sortField, setSortField] = useState<SortField>('startCultureDate');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -482,24 +485,46 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                         <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '11px' }}>
                           {row.cellName}
                         </Typography>
-                        {onTargetEdit && (
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onTargetEdit(row.id);
-                            }}
-                            sx={{
-                              padding: 0.25,
-                              '&:hover': {
-                                backgroundColor: 'action.hover',
-                              },
-                            }}
-                            title="編輯生產目標"
-                          >
-                            <EditIcon sx={{ fontSize: '14px' }} />
-                          </IconButton>
-                        )}
+                        <Box sx={{ display: 'flex', gap: 0.25 }}>
+                          {onTargetEdit && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTargetEdit(row.id);
+                              }}
+                              sx={{
+                                padding: 0.25,
+                                '&:hover': {
+                                  backgroundColor: 'action.hover',
+                                },
+                              }}
+                              title="編輯生產目標"
+                            >
+                              <EditIcon sx={{ fontSize: '14px' }} />
+                            </IconButton>
+                          )}
+                          {onTargetDelete && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTargetDelete(row.id);
+                              }}
+                              sx={{
+                                padding: 0.25,
+                                color: 'error.main',
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.dark',
+                                },
+                              }}
+                              title="刪除生產目標"
+                            >
+                              <DeleteIcon sx={{ fontSize: '14px' }} />
+                            </IconButton>
+                          )}
+                        </Box>
                       </Box>
                     </TableCell>
 
@@ -696,6 +721,18 @@ const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
                                   >
                                     {workOrderType ? getTicketName(workOrderType) : '-'}
                                   </Typography>
+                                  {/* 確認排程日曆圖標 */}
+                                  {schedules[0].ticket && (
+                                    <Tooltip title={schedules[0].ticket.scheduleConfirmed ? '已確認排程' : '未確認排程'}>
+                                      <CustomCalendarIcon
+                                        confirmed={schedules[0].ticket.scheduleConfirmed || false}
+                                        sx={{
+                                          fontSize: '14px',
+                                          cursor: 'pointer',
+                                        }}
+                                      />
+                                    </Tooltip>
+                                  )}
                                   {schedules[0].status && (
                                     <Chip
                                       label={getStatusText(schedules[0].status)}

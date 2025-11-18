@@ -2,9 +2,6 @@ import axios from 'axios';
 import { ApiResponse } from '../types/ticket';
 
 const getApiBaseUrl = (): string => {
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const isHttps = typeof window !== 'undefined' ? window.location.protocol === 'https:' : false;
   
@@ -13,13 +10,21 @@ const getApiBaseUrl = (): string => {
   } else if (currentHost === 'irmed.workorder.ngrok.dev') {
     // 如果是前端的 ngrok 域名，使用後端的 ngrok URL（HTTPS）
     return 'https://irmed.woapi.ngrok.dev/api';
+  } else if (currentHost.includes('.ngrok.dev') || currentHost.includes('.ngrok.io')) {
+    // 如果是其他 ngrok 域名，嘗試推斷後端 URL
+    const baseDomain = currentHost.replace('.ngrok.dev', '').replace('.ngrok.io', '');
+    const protocol = isHttps ? 'https' : 'http';
+    const tld = currentHost.includes('.ngrok.dev') ? '.ngrok.dev' : '.ngrok.io';
+    // 嘗試常見的後端域名模式
+    if (baseDomain.includes('workorder')) {
+      return 'https://irmed.woapi.ngrok.dev/api';
+    }
+    return `${protocol}://${baseDomain}-api${tld}/api`;
   } else {
     const protocol = isHttps ? 'https' : 'http';
     return `${protocol}://${currentHost}:5000/api`;
   }
 };
-
-const API_BASE_URL = getApiBaseUrl();
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -50,7 +55,7 @@ class AIAgentService {
     conversationId?: string
   ): Promise<ApiResponse<ChatResponse>> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/ai/chat`, {
+      const response = await axios.post(`${getApiBaseUrl()}/ai/chat`, {
         message,
         conversationId,
       });
@@ -70,7 +75,7 @@ class AIAgentService {
    */
   async checkStatus(): Promise<ApiResponse<OllamaStatus>> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/ai/status`);
+      const response = await axios.get(`${getApiBaseUrl()}/ai/status`);
       return response.data;
     } catch (error: any) {
       console.error('檢查 Ollama 狀態錯誤:', error);

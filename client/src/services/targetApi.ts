@@ -13,11 +13,6 @@ import { ApiResponse } from '../types/ticket';
 
 // 動態獲取 API URL（支援外部訪問）
 const getApiBaseUrl = (): string => {
-  // 優先使用環境變數
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-
   // 如果當前訪問地址不是 localhost，自動構建 API URL
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const isHttps = typeof window !== 'undefined' ? window.location.protocol === 'https:' : false;
@@ -28,21 +23,45 @@ const getApiBaseUrl = (): string => {
   } else if (currentHost === 'irmed.workorder.ngrok.dev') {
     // 如果是前端的 ngrok 域名，使用後端的 ngrok URL（HTTPS）
     return 'https://irmed.woapi.ngrok.dev/api';
+  } else if (currentHost.includes('.ngrok.dev') || currentHost.includes('.ngrok.io')) {
+    // 如果是其他 ngrok 域名，嘗試推斷後端 URL
+    const baseDomain = currentHost.replace('.ngrok.dev', '').replace('.ngrok.io', '');
+    const protocol = isHttps ? 'https' : 'http';
+    const tld = currentHost.includes('.ngrok.dev') ? '.ngrok.dev' : '.ngrok.io';
+    // 嘗試常見的後端域名模式
+    if (baseDomain.includes('workorder')) {
+      return 'https://irmed.woapi.ngrok.dev/api';
+    }
+    return `${protocol}://${baseDomain}-api${tld}/api`;
   } else {
-    // 外部訪問（使用 IP 地址），構建對應的 API URL
+    // 外部訪問（使用 IP 地址或其他域名），構建對應的 API URL
     const protocol = isHttps ? 'https' : 'http';
     return `${protocol}://${currentHost}:5000/api`;
   }
 };
 
 // 建立 axios 實例，設定基礎 URL
+// 注意：baseURL 會在請求攔截器中動態設置
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// 請求攔截器 - 動態設置 baseURL
+api.interceptors.request.use(
+  (config) => {
+    // 動態設置 baseURL（每次請求時都重新計算）
+    if (!config.baseURL) {
+      config.baseURL = getApiBaseUrl();
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // 預生產目標 API 服務類別
 export class TargetService {

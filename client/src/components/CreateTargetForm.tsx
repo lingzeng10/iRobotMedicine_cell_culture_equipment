@@ -37,6 +37,7 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
   // 表單資料狀態
   const [formData, setFormData] = useState<CreateTargetRequest>({
     name: '',
+    productionType: 'EXOSOME', // 默認為外泌體
     materialType: '',
     responsiblePerson: '',
     productionTarget: '',
@@ -54,6 +55,10 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
 
   // 錯誤訊息狀態
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 身分證狀態（分為前2碼和後4碼）
+  const [idCardPrefix, setIdCardPrefix] = useState<string>('A0'); // 前2碼，預設 A0
+  const [idCardSuffix, setIdCardSuffix] = useState<string>('0000'); // 後4碼，預設 0000
 
   /**
    * 處理表單欄位變更
@@ -91,11 +96,17 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    // 驗證目標名稱
+    // 驗證目標名稱（必須是4碼英數字）
     if (!formData.name.trim()) {
       newErrors.name = '目標名稱不能為空';
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = '目標名稱至少需要2個字元';
+    } else {
+      // 去掉連字號後必須是4碼英數字
+      const cleaned = formData.name.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleaned.length !== 4) {
+        newErrors.name = '生產目標應為4碼英數字';
+      } else if (!/^[a-zA-Z0-9]{4}$/.test(cleaned)) {
+        newErrors.name = '生產目標應為4碼英數字';
+      }
     }
 
     // 驗證預計完成時間
@@ -120,6 +131,17 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
       newErrors.responsiblePerson = '負責人員必須為 OP001, OP002, 或 OP003';
     }
 
+    // 驗證身分證（前2碼 + 後4碼 = 6碼）
+    if (!idCardPrefix || idCardPrefix.length !== 2) {
+      newErrors.idCard = '身分證前2碼必須為2碼';
+    } else if (!/^[A-Z0-9]{2}$/.test(idCardPrefix.toUpperCase())) {
+      newErrors.idCard = '身分證前2碼必須為英數字';
+    } else if (!idCardSuffix || idCardSuffix.length !== 4) {
+      newErrors.idCard = '身分證後4碼必須為4碼';
+    } else if (!/^[0-9]{4}$/.test(idCardSuffix)) {
+      newErrors.idCard = '身分證後4碼必須為數字';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -139,8 +161,14 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
     setLoading(true);
 
     try {
+      // 合併身分證（前2碼 + 後4碼 = 6碼）
+      const idCard = (idCardPrefix.toUpperCase() + idCardSuffix).padEnd(6, '0').substring(0, 6);
+
       // 呼叫 API 建立預生產目標
-      const response = await TargetService.createTarget(formData);
+      const response = await TargetService.createTarget({
+        ...formData,
+        idCard: idCard,
+      });
 
       if (response.success && response.data) {
         // 成功建立，觸發成功回調
@@ -149,6 +177,7 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
         // 重置表單
         setFormData({
           name: '',
+          productionType: 'EXOSOME',
           materialType: '',
           responsiblePerson: '',
           productionTarget: '',
@@ -157,6 +186,8 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
           boxCount: undefined,
           expectedCompletionDate: '',
         });
+        setIdCardPrefix('A0');
+        setIdCardSuffix('0000');
         setErrors({});
         
         // 關閉對話框
@@ -181,6 +212,7 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
       // 重置表單狀態
       setFormData({
         name: '',
+        productionType: 'EXOSOME',
         materialType: '',
         responsiblePerson: '',
         productionTarget: '',
@@ -189,6 +221,8 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
         boxCount: undefined,
         expectedCompletionDate: '',
       });
+      setIdCardPrefix('A0');
+      setIdCardSuffix('0000');
       setErrors({});
       setErrorMessage(null);
       
@@ -244,6 +278,65 @@ const CreateTargetForm: React.FC<CreateTargetFormProps> = ({
                 disabled={loading}
                 placeholder="例如：2024年Q1產品生產目標"
               />
+
+              {/* 身分證資訊欄位 */}
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                  身分證資訊
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                  <TextField
+                    label="前2碼"
+                    value={idCardPrefix}
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 2);
+                      setIdCardPrefix(value);
+                      if (errors.idCard) {
+                        setErrors(prev => ({ ...prev, idCard: '' }));
+                      }
+                    }}
+                    error={!!errors.idCard}
+                    helperText={errors.idCard || '前2碼（英數字）'}
+                    disabled={loading}
+                    inputProps={{ maxLength: 2 }}
+                    sx={{ width: '120px' }}
+                    placeholder="A0"
+                  />
+                  <TextField
+                    label="後4碼"
+                    value={idCardSuffix}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '').substring(0, 4);
+                      setIdCardSuffix(value);
+                      if (errors.idCard) {
+                        setErrors(prev => ({ ...prev, idCard: '' }));
+                      }
+                    }}
+                    error={!!errors.idCard}
+                    helperText={errors.idCard || '後4碼（數字）'}
+                    disabled={loading}
+                    inputProps={{ maxLength: 4 }}
+                    sx={{ width: '180px' }}
+                    placeholder="0000"
+                  />
+                </Box>
+              </Box>
+
+              {/* 生產類型欄位 */}
+              <TextField
+                fullWidth
+                select
+                label="生產類型"
+                value={formData.productionType || 'EXOSOME'}
+                onChange={(e) => handleFieldChange('productionType', e.target.value as 'EXOSOME' | 'CELL')}
+                error={!!errors.productionType}
+                helperText={errors.productionType || '選擇生產類型'}
+                disabled={loading}
+                required
+              >
+                <MenuItem value="EXOSOME">外泌體</MenuItem>
+                <MenuItem value="CELL">細胞</MenuItem>
+              </TextField>
 
               {/* 收集原料種類欄位 */}
               <TextField

@@ -11,6 +11,7 @@ const scheduleRoutes = require('./routes/schedules');
 const photoRoutes = require('./routes/photos');
 const versionRoutes = require('./routes/version');
 const aiAgentRoutes = require('./routes/aiAgent');
+const materialRoutes = require('./routes/materials');
 
 // 建立 Express 應用程式
 const app = express();
@@ -39,7 +40,8 @@ app.get('/', (req, res) => {
       schedules: '/api/schedules',
       photos: '/api/photos',
       version: '/api/version',
-      ai: '/api/ai'
+      ai: '/api/ai',
+      materials: '/api/materials'
     },
     timestamp: new Date().toISOString()
   });
@@ -61,6 +63,7 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/version', versionRoutes);
 app.use('/api/ai', aiAgentRoutes);
+app.use('/api/materials', materialRoutes);
 
 // 404 處理
 app.use('*', (req, res) => {

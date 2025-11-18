@@ -29,6 +29,8 @@ import {
 import { ProductionTarget, ProductionScheduleRow, TicketScheduleWithRelations } from './types/target';
 import { Ticket } from './types/ticket';
 import { TargetService } from './services/targetApi';
+import { MaterialService, MaterialRequest } from './services/materialApi';
+import { getTicketName } from './utils/stationMapping';
 import dayjs from 'dayjs';
 import {
   Menu as MenuIcon,
@@ -38,8 +40,11 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   Info as InfoIcon,
+  Warning as WarningIcon,
+  Delete as DeleteIcon,
+  Inventory as InventoryIcon,
 } from '@mui/icons-material';
-import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Select, MenuItem, FormControl, InputLabel, Tabs, Tab } from '@mui/material';
 
 // 匯入自定義元件
 import CreateTargetForm from './components/CreateTargetForm';
@@ -49,6 +54,7 @@ import VersionDialog from './components/VersionDialog';
 import AIAgentPanel from './components/AIAgentPanel';
 import ProductionScheduleTable from './components/ProductionScheduleTable';
 import TicketSchedule from './components/TicketSchedule';
+import MaterialManagement from './components/MaterialManagement';
 
 // 建立深色高科技主題
 const medicalTheme = createTheme({
@@ -287,14 +293,27 @@ const AppMUI: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scheduleTableData, setScheduleTableData] = useState<ProductionScheduleRow[]>([]);
+  const [exosomeScheduleTableData, setExosomeScheduleTableData] = useState<ProductionScheduleRow[]>([]); // 外泌體生產排程數據
+  const [cellScheduleTableData, setCellScheduleTableData] = useState<ProductionScheduleRow[]>([]); // 細胞生產排程數據
   const [loadingTableData, setLoadingTableData] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<ProductionTarget | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [todaySchedulesDialogOpen, setTodaySchedulesDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<ProductionTarget | null>(null);
+  const [activeTab, setActiveTab] = useState<number>(0); // 0: 外泌體生產排程表, 1: 細胞的生產排程
+  const [activeView, setActiveView] = useState<'schedule' | 'materials'>('schedule'); // 主視圖：排程管理或備料系統
   const [selectedYear, setSelectedYear] = useState<number>(dayjs().year());
   const [selectedMonth, setSelectedMonth] = useState<number>(dayjs().month() + 1);
+  const [cellSelectedYear, setCellSelectedYear] = useState<number>(dayjs().year());
+  const [deleteTargetDialogOpen, setDeleteTargetDialogOpen] = useState(false);
+  const [deletingTargetId, setDeletingTargetId] = useState<string | null>(null);
+  const [deletingTarget, setDeletingTarget] = useState(false);
+  const [cellSelectedMonth, setCellSelectedMonth] = useState<number>(dayjs().month() + 1);
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingRequests, setPendingRequests] = useState<MaterialRequest[]>([]);
+  const [alertShownToday, setAlertShownToday] = useState(false); // 記錄今天是否已顯示過提醒
 
   // 載入目標列表
   const loadTargets = useCallback(async () => {
@@ -306,12 +325,15 @@ const AppMUI: React.FC = () => {
 
       if (response.success && response.data) {
         setTargets(response.data.targets);
+        return response.data.targets; // 返回目標列表，供調用者使用
       } else {
         setError(response.message || '載入預生產目標失敗');
+        return [];
       }
     } catch (error: any) {
       console.error('載入預生產目標錯誤:', error);
       setError('載入預生產目標失敗，請稍後再試');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -322,14 +344,64 @@ const AppMUI: React.FC = () => {
     loadTargets();
   }, [loadTargets]);
 
+  // 檢查當天待備料工單
+  const checkTodayPendingMaterials = useCallback(async () => {
+    // 如果今天已經顯示過提醒，不再顯示
+    if (alertShownToday) return;
+    
+    try {
+      const response = await MaterialService.getMaterialRequests();
+      if (response.success && response.data) {
+        // 獲取今天的日期（格式：YYYY-MM-DD）
+        const today = dayjs().format('YYYY-MM-DD');
+        
+        // 檢查是否有當天待備料的工單
+        const todayPendingRequests = response.data.filter(
+          (req: MaterialRequest) => {
+            // 狀態必須是 PENDING
+            if (req.status !== 'PENDING') return false;
+            
+            // 檢查是否有排程日期
+            const scheduledDate = req.ticket?.schedules?.[0]?.scheduledDate;
+            if (!scheduledDate) return false;
+            
+            // 排程日期必須是今天
+            const scheduleDateStr = dayjs(scheduledDate).format('YYYY-MM-DD');
+            return scheduleDateStr === today;
+          }
+        );
+        
+        // 如果有當天待備料的工單，顯示提醒
+        if (todayPendingRequests.length > 0) {
+          setPendingCount(todayPendingRequests.length);
+          setPendingRequests(todayPendingRequests);
+          setAlertDialogOpen(true);
+          setAlertShownToday(true); // 標記今天已顯示過提醒
+        }
+      }
+    } catch (err) {
+      console.error('檢查待備料工單錯誤:', err);
+    }
+  }, [alertShownToday]);
+
+  // 當排程頁面載入時檢查待備料工單
+  useEffect(() => {
+    if (activeView === 'schedule') {
+      checkTodayPendingMaterials();
+    }
+  }, [activeView, checkTodayPendingMaterials]);
+
   // 載入表格資料
-  const loadScheduleTableData = useCallback(async () => {
+  const loadScheduleTableData = useCallback(async (targetsToUse?: ProductionTarget[]) => {
     setLoadingTableData(true);
     try {
+      // 使用傳入的目標列表，如果沒有則使用狀態中的目標列表
+      const targetsList = targetsToUse || targets;
+      
       // 載入所有目標的排程資料
       const allSchedules: TicketScheduleWithRelations[] = [];
       
-      for (const target of targets) {
+      for (const target of targetsList) {
         try {
           const response = await TargetService.getTargetSchedules(target.id);
           if (response.success && response.data) {
@@ -344,7 +416,7 @@ const AppMUI: React.FC = () => {
       const tableDataMap = new Map<string, ProductionScheduleRow>();
 
       // 按目標分組
-      targets.forEach(target => {
+      targetsList.forEach(target => {
         const targetSchedules = allSchedules.filter(s => s.targetId === target.id);
         
         // 計算實際產量（已完成工單數量）
@@ -448,7 +520,29 @@ const AppMUI: React.FC = () => {
         });
       });
 
-      setScheduleTableData(Array.from(tableDataMap.values()));
+      const allTableData = Array.from(tableDataMap.values());
+      setScheduleTableData(allTableData);
+      
+      // 區分外泌體和細胞的排程數據
+      // 目前：所有現有數據都視為外泌體，細胞排程為空
+      // 未來可以根據 ProductionTarget 的某個字段（如 productionType）來過濾
+      const exosomeData: ProductionScheduleRow[] = [];
+      const cellData: ProductionScheduleRow[] = [];
+      
+      // 根據目標的 productionType 來區分外泌體和細胞
+      allTableData.forEach(row => {
+        const target = targetsList.find(t => t.id === row.id);
+        if (target?.productionType === 'CELL') {
+          // 如果生產類型是細胞，歸為細胞排程
+          cellData.push(row);
+        } else {
+          // 默認為外泌體（包括 productionType 為 EXOSOME 或未設置的情況）
+          exosomeData.push(row);
+        }
+      });
+      
+      setExosomeScheduleTableData(exosomeData);
+      setCellScheduleTableData(cellData); // 目前為空數組
     } catch (error) {
       console.error('載入表格資料錯誤:', error);
       setError('載入表格資料失敗');
@@ -519,11 +613,57 @@ const AppMUI: React.FC = () => {
   };
 
   /**
-   * 處理目標刪除
+   * 處理目標刪除點擊（顯示確認對話框）
    * @param targetId 目標 ID
    */
-  const handleTargetDelete = (targetId: string) => {
-    setTargets(prev => prev.filter(target => target.id !== targetId));
+  const handleTargetDeleteClick = (targetId: string) => {
+    setDeletingTargetId(targetId);
+    setDeleteTargetDialogOpen(true);
+  };
+
+  /**
+   * 處理目標刪除確認
+   */
+  const handleTargetDelete = async () => {
+    if (!deletingTargetId) return;
+
+    setDeletingTarget(true);
+    setError(null);
+
+    try {
+      const response = await TargetService.deleteTarget(deletingTargetId);
+
+      if (response.success) {
+        // 如果刪除的是當前選中的目標，清除選中狀態
+        if (selectedTarget?.id === deletingTargetId) {
+      setSelectedTarget(null);
+        }
+        
+        // 如果刪除的是正在編輯的目標，關閉編輯對話框
+        if (editingTarget?.id === deletingTargetId) {
+          setEditingTarget(null);
+        }
+        
+        // 關閉對話框
+        setDeleteTargetDialogOpen(false);
+        setDeletingTargetId(null);
+        
+        // 重新載入目標列表（確保數據一致性）
+        const updatedTargets = await loadTargets();
+        
+        // 使用更新後的目標列表重新載入表格數據
+        // 這樣可以確保使用最新的數據，而不依賴於狀態更新的時機
+        // 即使目標列表為空（刪除最後一個目標），也要更新表格
+        await loadScheduleTableData(updatedTargets || []);
+      } else {
+        setError(response.message || '刪除預生產目標失敗');
+      }
+    } catch (error: any) {
+      console.error('刪除預生產目標錯誤:', error);
+      setError('刪除預生產目標失敗，請稍後再試');
+    } finally {
+      setDeletingTarget(false);
+    }
   };
 
   /**
@@ -532,7 +672,8 @@ const AppMUI: React.FC = () => {
    */
   const handleTicketUpdate = (updatedTicket: Ticket) => {
     setSelectedTicket(updatedTicket);
-    // 這裡可以觸發排程列表的重新載入
+    // 觸發排程列表的重新載入，以反映工單狀態的變化（如確認排程）
+    loadScheduleTableData();
   };
 
   /**
@@ -568,6 +709,10 @@ const AppMUI: React.FC = () => {
    */
   const handleScheduleUpdate = () => {
     loadScheduleTableData();
+    // 排程更新後重新檢查待備料工單
+    if (activeView === 'schedule') {
+      checkTodayPendingMaterials();
+    }
   };
 
   return (
@@ -637,11 +782,25 @@ const AppMUI: React.FC = () => {
                 </ListItemButton>
               </ListItem>
               <ListItem disablePadding>
-                <ListItemButton>
+                <ListItemButton 
+                  selected={activeView === 'schedule'}
+                  onClick={() => setActiveView('schedule')}
+                >
                   <ListItemIcon>
                     <ScheduleIcon />
                   </ListItemIcon>
                   <ListItemText primary="排程管理" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton 
+                  selected={activeView === 'materials'}
+                  onClick={() => setActiveView('materials')}
+                >
+                  <ListItemIcon>
+                    <InventoryIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="備料系統" />
                 </ListItemButton>
               </ListItem>
             </List>
@@ -673,143 +832,300 @@ const AppMUI: React.FC = () => {
           <Toolbar /> {/* 為 AppBar 留出空間 */}
           
           <Box sx={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', width: '100%', flexDirection: 'column' }}>
-            {/* 表格視圖 - 佔滿整個區域 */}
-            <Box sx={{ 
-              width: '100%', 
-              height: '100%', 
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-            }}>
-              {loadingTableData ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
-                  <CircularProgress />
+            {/* 根據 activeView 顯示不同內容 */}
+            {activeView === 'materials' ? (
+              <MaterialManagement />
+            ) : (
+              <>
+                {/* 頁籤導航 */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+                  <Tabs 
+                    value={activeTab} 
+                    onChange={(e, newValue) => setActiveTab(newValue)}
+                sx={{ 
+                      '& .MuiTab-root': {
+                        color: 'text.secondary',
+                        fontSize: '0.95rem',
+                        fontWeight: 500,
+                        textTransform: 'none',
+                        minHeight: 48,
+                        '&.Mui-selected': {
+                          color: 'primary.main',
+                          fontWeight: 600,
+                        },
+                      },
+                      '& .MuiTabs-indicator': {
+                        backgroundColor: 'primary.main',
+                      },
+                    }}
+                  >
+                    <Tab label="外泌體生產排程表" />
+                    <Tab label="細胞的生產排程" />
+                  </Tabs>
                 </Box>
-              ) : (
-                <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="h6">生產排程表</Typography>
-                      {/* 年月選擇器 */}
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                          <InputLabel id="year-select-label">年</InputLabel>
-                          <Select
-                            labelId="year-select-label"
-                            value={selectedYear}
-                            label="年"
-                            onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            sx={{
-                              backgroundColor: 'rgba(26, 31, 58, 0.5)',
-                              color: '#e0e7ff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.3)',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.5)',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#00d4ff',
-                              },
-                            }}
+
+                {/* 頁籤內容 */}
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      {loadingTableData ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : (
+                    <>
+                      {/* 第一個頁籤：外泌體生產排程表 */}
+                      {activeTab === 0 && (
+                    <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography variant="h6">外泌體生產排程表</Typography>
+                          {/* 年月選擇器 */}
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <FormControl size="small" sx={{ minWidth: 100 }}>
+                              <InputLabel id="year-select-label">年</InputLabel>
+                              <Select
+                                labelId="year-select-label"
+                                value={selectedYear}
+                                label="年"
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                sx={{
+                                  backgroundColor: 'rgba(26, 31, 58, 0.5)',
+                                  color: '#e0e7ff',
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.3)',
+                                  },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.5)',
+                                  },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#00d4ff',
+                                  },
+                                }}
+                              >
+                                {Array.from({ length: 10 }, (_, i) => dayjs().year() - 2 + i).map((year) => (
+                                  <MenuItem key={year} value={year}>
+                                    {year}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            <FormControl size="small" sx={{ minWidth: 100 }}>
+                              <InputLabel id="month-select-label">月</InputLabel>
+                              <Select
+                                labelId="month-select-label"
+                                value={selectedMonth}
+                                label="月"
+                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                sx={{
+                                  backgroundColor: 'rgba(26, 31, 58, 0.5)',
+                                  color: '#e0e7ff',
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.3)',
+                                  },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.5)',
+                                  },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#00d4ff',
+                                  },
+                                }}
+                              >
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                                  <MenuItem key={month} value={month}>
+                                    {month}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setCreateTargetDialogOpen(true)}
+                            color="primary"
                           >
-                            {Array.from({ length: 10 }, (_, i) => dayjs().year() - 2 + i).map((year) => (
-                              <MenuItem key={year} value={year}>
-                                {year}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                          <InputLabel id="month-select-label">月</InputLabel>
-                          <Select
-                            labelId="month-select-label"
-                            value={selectedMonth}
-                            label="月"
-                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                            sx={{
-                              backgroundColor: 'rgba(26, 31, 58, 0.5)',
-                              color: '#e0e7ff',
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.3)',
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                borderColor: 'rgba(0, 212, 255, 0.5)',
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#00d4ff',
-                              },
-                            }}
+                            新增生產目標
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<ScheduleIcon />}
+                            onClick={() => setTodaySchedulesDialogOpen(true)}
                           >
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                              <MenuItem key={month} value={month}>
-                                {month}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                            今日工單
+                          </Button>
+                        </Box>
                       </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setCreateTargetDialogOpen(true)}
-                        color="primary"
-                      >
-                        新增生產目標
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<ScheduleIcon />}
-                        onClick={() => setTodaySchedulesDialogOpen(true)}
-                      >
-                        今日工單
-                      </Button>
-                    </Box>
-                  </Box>
-                  <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                    <ProductionScheduleTable 
-                      data={scheduleTableData}
-                      selectedYear={selectedYear}
-                      selectedMonth={selectedMonth}
-                      onDateClick={handleDateClick}
-                      onScheduleClick={(schedule) => {
-                        if (schedule.ticket) {
-                          setSelectedScheduleStatus(schedule.status); // 保存排程狀態
-                          setSelectedScheduleId(schedule.id); // 保存排程 ID
-                          handleTicketSelect(schedule.ticket as Ticket);
-                        }
-                      }}
-                      onScheduleEdit={(schedule) => {
-                        const target = targets.find(t => t.id === schedule.targetId);
-                        if (target) {
-                          setSelectedTarget(target);
-                          setSelectedDate(schedule.scheduledDate);
-                          setScheduleDialogOpen(true);
-                          // 這裡需要觸發編輯排程，但需要先載入 TicketSchedule 組件
-                          // 暫時先打開對話框，用戶可以在對話框中編輯
-                        }
-                      }}
-                      onScheduleDelete={async (scheduleId) => {
-                        try {
-                          const response = await TargetService.deleteSchedule(scheduleId);
-                          if (response.success) {
-                            handleScheduleUpdate();
-                          } else {
-                            setError(response.message || '刪除工單排程失敗');
-                          }
-                        } catch (error: any) {
-                          console.error('刪除工單排程錯誤:', error);
-                          setError('刪除工單排程失敗，請稍後再試');
-                        }
-                      }}
-                      onTargetEdit={handleTargetEdit}
-                    />
-                  </Box>
-                </Box>
-              )}
+                      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                        <ProductionScheduleTable 
+                          data={exosomeScheduleTableData}
+                          selectedYear={selectedYear}
+                          selectedMonth={selectedMonth}
+                          onDateClick={handleDateClick}
+                          onScheduleClick={(schedule) => {
+                            if (schedule.ticket) {
+                              setSelectedScheduleStatus(schedule.status); // 保存排程狀態
+                              setSelectedScheduleId(schedule.id); // 保存排程 ID
+                              handleTicketSelect(schedule.ticket as Ticket);
+                            }
+                          }}
+                          onScheduleEdit={(schedule) => {
+                            const target = targets.find(t => t.id === schedule.targetId);
+                            if (target) {
+                              setSelectedTarget(target);
+                              setSelectedDate(schedule.scheduledDate);
+                              setScheduleDialogOpen(true);
+                            }
+                          }}
+                          onScheduleDelete={async (scheduleId) => {
+                            try {
+                              const response = await TargetService.deleteSchedule(scheduleId);
+                              if (response.success) {
+                                handleScheduleUpdate();
+                              } else {
+                                setError(response.message || '刪除工單排程失敗');
+                              }
+                            } catch (error: any) {
+                              console.error('刪除工單排程錯誤:', error);
+                              setError('刪除工單排程失敗，請稍後再試');
+                            }
+                          }}
+                          onTargetEdit={handleTargetEdit}
+                          onTargetDelete={handleTargetDeleteClick}
+                        />
             </Box>
+                    </Box>
+                  )}
+
+                  {/* 第二個頁籤：細胞的生產排程 */}
+                  {activeTab === 1 && (
+                    <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography variant="h6">細胞的生產排程</Typography>
+                          {/* 年月選擇器 */}
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <FormControl size="small" sx={{ minWidth: 100 }}>
+                              <InputLabel id="cell-year-select-label">年</InputLabel>
+                              <Select
+                                labelId="cell-year-select-label"
+                                value={cellSelectedYear}
+                                label="年"
+                                onChange={(e) => setCellSelectedYear(Number(e.target.value))}
+                sx={{ 
+                                  backgroundColor: 'rgba(26, 31, 58, 0.5)',
+                                  color: '#e0e7ff',
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.3)',
+                                  },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.5)',
+                                  },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#00d4ff',
+                                  },
+                                }}
+                              >
+                                {Array.from({ length: 10 }, (_, i) => dayjs().year() - 2 + i).map((year) => (
+                                  <MenuItem key={year} value={year}>
+                                    {year}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            <FormControl size="small" sx={{ minWidth: 100 }}>
+                              <InputLabel id="cell-month-select-label">月</InputLabel>
+                              <Select
+                                labelId="cell-month-select-label"
+                                value={cellSelectedMonth}
+                                label="月"
+                                onChange={(e) => setCellSelectedMonth(Number(e.target.value))}
+                                sx={{
+                                  backgroundColor: 'rgba(26, 31, 58, 0.5)',
+                                  color: '#e0e7ff',
+                                  '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.3)',
+                                  },
+                                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: 'rgba(0, 212, 255, 0.5)',
+                                  },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#00d4ff',
+                                  },
+                                }}
+                              >
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                                  <MenuItem key={month} value={month}>
+                                    {month}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setCreateTargetDialogOpen(true)}
+                            color="primary"
+                          >
+                            新增生產目標
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<ScheduleIcon />}
+                            onClick={() => setTodaySchedulesDialogOpen(true)}
+                          >
+                            今日工單
+                          </Button>
+                        </Box>
+                      </Box>
+                      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                        <ProductionScheduleTable 
+                          data={cellScheduleTableData}
+                          selectedYear={cellSelectedYear}
+                          selectedMonth={cellSelectedMonth}
+                          onDateClick={handleDateClick}
+                          onScheduleClick={(schedule) => {
+                            if (schedule.ticket) {
+                              setSelectedScheduleStatus(schedule.status);
+                              setSelectedScheduleId(schedule.id);
+                              handleTicketSelect(schedule.ticket as Ticket);
+                            }
+                          }}
+                          onScheduleEdit={(schedule) => {
+                            const target = targets.find(t => t.id === schedule.targetId);
+                            if (target) {
+                              setSelectedTarget(target);
+                              setSelectedDate(schedule.scheduledDate);
+                              setScheduleDialogOpen(true);
+                            }
+                          }}
+                          onScheduleDelete={async (scheduleId) => {
+                            try {
+                              const response = await TargetService.deleteSchedule(scheduleId);
+                              if (response.success) {
+                                handleScheduleUpdate();
+                              } else {
+                                setError(response.message || '刪除工單排程失敗');
+                              }
+                            } catch (error: any) {
+                              console.error('刪除工單排程錯誤:', error);
+                              setError('刪除工單排程失敗，請稍後再試');
+                            }
+                          }}
+                          onTargetEdit={handleTargetEdit}
+                          onTargetDelete={handleTargetDeleteClick}
+                        />
+            </Box>
+                    </Box>
+                      )}
+                    </>
+                  )}
+                </Box>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -976,10 +1292,114 @@ const AppMUI: React.FC = () => {
           selectedTarget={null}
           onTicketSelect={handleTicketSelect}
           onTargetUpdate={handleTargetUpdate}
-          onTargetDelete={handleTargetDelete}
+          onTargetDelete={handleTargetDeleteClick}
           showTodaySchedules={todaySchedulesDialogOpen}
           onTodaySchedulesClose={() => setTodaySchedulesDialogOpen(false)}
         />
+
+        {/* 當天待備料提醒視窗 */}
+        <Dialog
+          open={alertDialogOpen}
+          onClose={() => setAlertDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Alert severity="warning" sx={{ flex: 1 }}>
+                今日備料提醒
+              </Alert>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" sx={{ mb: 2, mt: 2 }}>
+              今天（{dayjs().format('YYYY-MM-DD')}）有 <strong>{pendingCount}</strong> 個工單尚未完成備料，請盡快處理。
+            </Typography>
+            {pendingRequests.length > 0 && (
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <List dense>
+                  {pendingRequests.map((request, index) => {
+                    const targetName = request.ticket?.schedules?.[0]?.target?.name || '未指定';
+                    const ticketType = getTicketName(request.deviceId);
+                    return (
+                      <React.Fragment key={request.id}>
+                        <ListItem>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                                  生產目標：{targetName}
+                                </Typography>
+                                <Typography variant="body2" component="span" color="text.secondary">
+                                  | 工單類型：{ticketType}
+                                </Typography>
+                              </Box>
+                            }
+                            secondary={
+                              <Typography variant="caption" color="text.secondary">
+                                工單ID：{request.ticketId}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                        {index < pendingRequests.length - 1 && <Divider />}
+                      </React.Fragment>
+                    );
+                  })}
+                </List>
+              </Box>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              請前往備料系統查看詳細資訊並完成備料作業。
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAlertDialogOpen(false)} variant="contained" color="primary">
+              我知道了
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 刪除目標確認對話框 */}
+        <Dialog
+          open={deleteTargetDialogOpen}
+          onClose={() => !deletingTarget && setDeleteTargetDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <WarningIcon color="error" />
+              <Typography variant="h6">確認刪除生產目標</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" sx={{ mt: 1 }}>
+              確定要刪除這個生產目標嗎？
+            </Typography>
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              刪除目標後，相關的工單排程也會一併刪除，此操作無法復原。
+            </Alert>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setDeleteTargetDialogOpen(false)} 
+              disabled={deletingTarget}
+              color="inherit"
+            >
+              取消
+            </Button>
+            <Button 
+              onClick={handleTargetDelete} 
+              variant="contained" 
+              color="error"
+              disabled={deletingTarget}
+              startIcon={deletingTarget ? <CircularProgress size={16} /> : <DeleteIcon />}
+            >
+              {deletingTarget ? '刪除中...' : '確認刪除'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );

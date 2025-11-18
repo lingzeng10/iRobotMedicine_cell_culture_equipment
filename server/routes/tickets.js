@@ -32,9 +32,15 @@ router.post('/', [
 
     const { deviceId, imageId } = req.body;
 
+    // 注意：手動建立的工單無法生成自訂 ID（需要關聯到生產目標）
+    // 使用臨時的 ID（生成28碼的隨機字串）
+    const crypto = require('crypto');
+    const tempId = crypto.randomBytes(14).toString('hex'); // 生成28碼的臨時 ID
+
     // 建立新工單
     const ticket = await prisma.ticket.create({
       data: {
+        id: tempId,
         deviceId,
         imageId: imageId || null,
         status: 'OPEN' // 預設狀態為 OPEN
@@ -360,7 +366,8 @@ router.put('/:id', [
       subMediumType,
       subRecycledMediumType,
       collectDiscardBoxCount,
-      collectDiscardRecycledMediumType
+      collectDiscardRecycledMediumType,
+      scheduleConfirmed
     } = req.body;
 
     // 檢查工單是否存在
@@ -407,6 +414,7 @@ router.put('/:id', [
     if (subRecycledMediumType !== undefined) updateData.subRecycledMediumType = subRecycledMediumType || null;
     if (collectDiscardBoxCount !== undefined) updateData.collectDiscardBoxCount = collectDiscardBoxCount ? parseInt(collectDiscardBoxCount) : null;
     if (collectDiscardRecycledMediumType !== undefined) updateData.collectDiscardRecycledMediumType = collectDiscardRecycledMediumType || null;
+    if (scheduleConfirmed !== undefined) updateData.scheduleConfirmed = scheduleConfirmed === true || scheduleConfirmed === 'true';
 
     // 更新工單
     const updatedTicket = await prisma.ticket.update({

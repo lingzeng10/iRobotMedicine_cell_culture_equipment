@@ -12,6 +12,8 @@ export enum TargetStatus {
 export interface ProductionTarget {
   id: string;
   name: string;                    // 目標名稱（細胞）
+  idCard?: string;                  // 身分證（6碼）
+  productionType?: 'EXOSOME' | 'CELL'; // 生產類型（EXOSOME: 外泌體, CELL: 細胞）
   materialType?: string;            // 收集原料種類
   responsiblePerson?: string;      // 負責人員（OP001, OP002, OP003）
   productionTarget?: string;       // 生產目標（如 "3L"）
@@ -27,6 +29,8 @@ export interface ProductionTarget {
 // 建立預生產目標請求介面
 export interface CreateTargetRequest {
   name: string;
+  idCard?: string;                 // 身分證（6碼）
+  productionType?: 'EXOSOME' | 'CELL'; // 生產類型（EXOSOME: 外泌體, CELL: 細胞）
   materialType?: string;           // 收集原料種類
   responsiblePerson?: string;      // 負責人員（OP001, OP002, OP003）
   productionTarget?: string;       // 生產目標（如 "3L"）
@@ -39,6 +43,7 @@ export interface CreateTargetRequest {
 // 更新預生產目標請求介面
 export interface UpdateTargetRequest {
   name?: string;
+  productionType?: 'EXOSOME' | 'CELL'; // 生產類型（EXOSOME: 外泌體, CELL: 細胞）
   materialType?: string;           // 收集原料種類
   responsiblePerson?: string;      // 負責人員（OP001, OP002, OP003）
   productionTarget?: string;       // 生產目標（如 "3L"）

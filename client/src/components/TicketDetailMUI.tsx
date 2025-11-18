@@ -24,10 +24,12 @@ import {
   Image as ImageIcon,
   AccessTime as TimeIcon,
   CalendarToday as CalendarIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { MaterialService } from '../services/materialApi';
 import dayjs, { Dayjs } from 'dayjs';
 import 'dayjs/locale/zh-tw';
 
@@ -72,6 +74,8 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
   const [scheduleStatusEdit, setScheduleStatusEdit] = useState<string>(scheduleStatus || 'NOT_STARTED');
   // 排程狀態更新中
   const [updatingScheduleStatus, setUpdatingScheduleStatus] = useState(false);
+  // 確認排程中
+  const [confirmingSchedule, setConfirmingSchedule] = useState(false);
 
   // 表單驗證錯誤狀態
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -213,6 +217,15 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
         // 觸發更新回調
         if (onUpdate) {
           onUpdate(response.data);
+        }
+        
+        // 自動計算備料需求
+        try {
+          await MaterialService.calculateMaterials(ticketData.id);
+          console.log('備料需求已自動計算');
+        } catch (error) {
+          console.error('計算備料需求錯誤:', error);
+          // 不影響工單更新流程，僅記錄錯誤
         }
         
         // 強制重新載入資料，確保獲取最新且完整的資料（包括所有欄位）
@@ -472,12 +485,12 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
         errors.collectDiscardRecycledMediumType = '回收培養液種類必須為 022-02.4, 022-02.1, SAM10, CM2, 或 AM5';
       }
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
-    
+
     if (Object.keys(editForm).length > 0) {
       await handleUpdate(editForm);
     }
@@ -509,13 +522,54 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
     }
   };
 
+  /**
+   * 處理確認排程
+   */
+  const handleConfirmSchedule = async () => {
+    if (!ticketData) return;
+    
+    setConfirmingSchedule(true);
+    setError(null);
+    
+    try {
+      const response = await TicketService.updateTicket(ticketData.id, {
+        scheduleConfirmed: true
+      });
+      
+      if (response.success && response.data) {
+        setTicketData(response.data);
+        // 觸發更新回調
+        if (onUpdate) {
+          onUpdate(response.data);
+        }
+        // 觸發排程更新回調，以刷新表格數據
+        if (onScheduleUpdate) {
+          onScheduleUpdate();
+        }
+        // 自動計算備料需求
+        try {
+          await MaterialService.calculateMaterials(ticketData.id);
+        } catch (error) {
+          console.error('計算備料需求錯誤:', error);
+        }
+      } else {
+        setError(response.message || '確認排程失敗');
+      }
+    } catch (error: any) {
+      console.error('確認排程錯誤:', error);
+      setError('確認排程失敗，請稍後再試');
+    } finally {
+      setConfirmingSchedule(false);
+    }
+  };
+
   // 當對話框開啟時載入詳情（優先從 API 重新載入以確保資料完整）
   useEffect(() => {
     if (open) {
       // 優先使用 ticketId 從 API 重新載入，確保獲取最新且完整的資料（包括所有新欄位）
       if (ticketId) {
         console.log('對話框開啟，使用 ticketId 重新載入工單詳情, ticketId:', ticketId);
-        loadTicketDetail();
+      loadTicketDetail();
       } else if (ticket && ticket.id) {
         // 如果沒有 ticketId 但有 ticket prop，使用 ticket.id 從 API 重新載入
         console.log('對話框開啟，使用 ticket.id 重新載入工單詳情, ticketId:', ticket.id);
@@ -531,7 +585,7 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
             } else {
               // 如果 API 載入失敗，降級使用傳入的 ticket 資料
               console.warn('API 載入失敗，使用傳入的 ticket 資料:', ticket);
-              setTicketData(ticket);
+      setTicketData(ticket);
               setEditForm({});
             }
           } catch (error: any) {
@@ -748,20 +802,20 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
                         </Typography>
                       </>
                     )}
-                    
+
                     {/* AOI 工單專用欄位：拍照倍數和張數 */}
                     {ticketData.deviceId === 'AOI' && (
                       <>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <ImageIcon color="primary" />
-                          <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary">
                             拍照倍數:
-                          </Typography>
-                        </Box>
-                        {editing ? (
-                          <TextField
+                      </Typography>
+                    </Box>
+                    {editing ? (
+                      <TextField
                             fullWidth
-                            select
+                        select
                             value={editForm.magnification || ''}
                             onChange={(e) => setEditForm(prev => ({ ...prev, magnification: e.target.value }))}
                             error={!!formErrors.magnification}
@@ -1152,7 +1206,7 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
                             value={editForm.thawFreezeDate ? dayjs(editForm.thawFreezeDate) : null}
                             onChange={(date: Dayjs | null) =>
                               setEditForm(prev => ({
-                                ...prev,
+                          ...prev, 
                                 thawFreezeDate: date ? date.format('YYYY-MM-DD') : undefined
                               }))
                             }
@@ -1212,8 +1266,8 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
                             <MenuItem value="SAM10">SAM10</MenuItem>
                             <MenuItem value="CM2">CM2</MenuItem>
                             <MenuItem value="AM5">AM5</MenuItem>
-                          </TextField>
-                        ) : (
+                      </TextField>
+                    ) : (
                           <Typography variant="body1">
                             {ticketData.thawMediumType || '未設定'}
                           </Typography>
@@ -1535,6 +1589,18 @@ const TicketDetailMUI: React.FC<TicketDetailProps> = ({
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
+          {/* 如果未確認排程，顯示確認排程按鈕 */}
+          {ticketData && !ticketData.scheduleConfirmed && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleConfirmSchedule}
+              disabled={confirmingSchedule || loading}
+              startIcon={<CheckCircleIcon />}
+            >
+              {confirmingSchedule ? '確認中...' : '確認排程'}
+            </Button>
+          )}
           {(ticketData?.deviceId === 'AOI' || ticketData?.deviceId === 'Chang Medium' || ticketData?.deviceId === 'Sub & Freeze' || ticketData?.deviceId === 'Sub' || ticketData?.deviceId === 'Thaw' || ticketData?.deviceId === 'Freeze' || ticketData?.deviceId === 'Collect & Discard') && (
             <>
               {!editing ? (

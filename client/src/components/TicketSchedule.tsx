@@ -52,6 +52,7 @@ import 'dayjs/locale/zh-tw';
 import { ProductionTarget, TicketSchedule, TicketScheduleWithRelations, CreateScheduleRequest, UpdateScheduleRequest, TargetStatus } from '../types/target';
 import { Ticket } from '../types/ticket';
 import { TargetService } from '../services/targetApi';
+import { MaterialService } from '../services/materialApi';
 import { TicketService } from '../services/api';
 import { formatTicketDisplay, getStationDisplay, getTicketName, getAvailableDeviceIds } from '../utils/stationMapping';
 
@@ -263,6 +264,15 @@ const TicketScheduleComponent: React.FC<TicketScheduleProps> = ({
           ticketId = createTicketResponse.data.id;
           // 將新創建的工單添加到 tickets 列表中
           setTickets(prev => [...prev, createTicketResponse.data!]);
+          
+          // 自動計算備料需求
+          try {
+            await MaterialService.calculateMaterials(ticketId);
+            console.log('備料需求已自動計算');
+          } catch (error) {
+            console.error('計算備料需求錯誤:', error);
+            // 不影響工單建立流程，僅記錄錯誤
+          }
         } else {
           setError(createTicketResponse.message || '創建工單失敗');
           return;

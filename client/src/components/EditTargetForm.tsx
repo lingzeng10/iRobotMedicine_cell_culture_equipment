@@ -39,6 +39,7 @@ const EditTargetForm: React.FC<EditTargetFormProps> = ({
   // 表單資料狀態
   const [formData, setFormData] = useState<UpdateTargetRequest>({
     name: '',
+    productionType: 'EXOSOME',
     materialType: '',
     responsiblePerson: '',
     productionTarget: '',
@@ -62,6 +63,7 @@ const EditTargetForm: React.FC<EditTargetFormProps> = ({
     if (target && open) {
       setFormData({
         name: target.name || '',
+        productionType: target.productionType || 'EXOSOME',
         materialType: target.materialType || '',
         responsiblePerson: target.responsiblePerson || '',
         productionTarget: target.productionTarget || '',
@@ -218,6 +220,7 @@ const EditTargetForm: React.FC<EditTargetFormProps> = ({
       // 重置表單狀態
       setFormData({
         name: '',
+        productionType: 'EXOSOME',
         materialType: '',
         responsiblePerson: '',
         productionTarget: '',
@@ -281,6 +284,22 @@ const EditTargetForm: React.FC<EditTargetFormProps> = ({
                 disabled={loading}
                 placeholder="例如：2024年Q1產品生產目標"
               />
+
+              {/* 生產類型欄位 */}
+              <TextField
+                fullWidth
+                select
+                label="生產類型"
+                value={formData.productionType || 'EXOSOME'}
+                onChange={(e) => handleFieldChange('productionType', e.target.value as 'EXOSOME' | 'CELL')}
+                error={!!errors.productionType}
+                helperText={errors.productionType || '選擇生產類型'}
+                disabled={loading}
+                required
+              >
+                <MenuItem value="EXOSOME">外泌體</MenuItem>
+                <MenuItem value="CELL">細胞</MenuItem>
+              </TextField>
 
               {/* 收集原料種類欄位 */}
               <TextField
